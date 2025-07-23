@@ -77,19 +77,15 @@ class FullLLMTaskGenerator:
                 - "Select the conclusion paragraph"
             
             The environment setup should follow the scenario, e.g., if the task is to select a textbox with a specific text, the environment should include other textboxes that are not the target. And also not in conflict with the instruction. Example:
-                - Scnario: "select the textbox that contains the conclusion paragraph summarizing the project impact"
-                {
-                "other_textboxes": [
+                - scnario: "select the textbox that contains the conclusion paragraph summarizing the project impact"
+                - "other_textboxes": [
                     "Introduction: This presentation outlines our green building initiative launched in Q1.",
                     "Objectives: Reduce energy consumption by 30percent over two years."
                 ],
-                "background_color": "0xF0F0F0"
-                }
-            
-            
-            
+                - "text_in_textbox": "In conclusion, the project successfully reduced energy usage by 32%, exceeding our initial goals and demonstrating the effectiveness of our sustainability model."
+
             """,
-            
+        }
             
             
             
