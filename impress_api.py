@@ -1,0 +1,445 @@
+import uno
+from com.sun.star.awt import Point, Size
+from com.sun.star.beans import PropertyValue
+from flask import Flask, jsonify, request
+import logging
+import sys
+import os
+
+# 设置日志
+logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
+
+app = Flask(__name__)
+desktop = None
+
+# 添加错误处理
+@app.errorhandler(Exception)
+def handle_exception(e):
+    logger.error(f"Unhandled exception: {e}", exc_info=True)
+    return jsonify({"error": str(e)}), 500
+
+def connect_to_libreoffice():
+    """连接到正在运行的LibreOffice实例或启动新实例"""
+    try:
+        logger.info("尝试连接到 LibreOffice...")
+        local_context = uno.getComponentContext()
+        logger.debug("获取本地上下文成功")
+        
+        resolver = local_context.ServiceManager.createInstanceWithContext(
+            "com.sun.star.bridge.UnoUrlResolver", local_context)
+        logger.debug("创建解析器成功")
+        
+        ctx = resolver.resolve("uno:socket,host=127.0.0.1,port=2002;urp;StarOffice.ComponentContext")
+        logger.info("成功连接到 LibreOffice!")
+        
+        smgr = ctx.ServiceManager
+        desktop = smgr.createInstanceWithContext("com.sun.star.frame.Desktop", ctx)
+        return desktop
+    except Exception as e:
+        logger.error(f"连接 LibreOffice 失败: {e}", exc_info=True)
+        return None
+
+def get_current_presentation():
+    """获取当前活动演示文稿"""
+    global desktop
+    if not desktop:
+        desktop = connect_to_libreoffice()
+        if not desktop:
+            return None
+    
+    doc = desktop.getCurrentComponent()
+    # 检查是否是演示文稿
+    if doc and doc.supportsService("com.sun.star.presentation.PresentationDocument"):
+        return doc
+    return None
+
+def get_current_slide(doc):
+    """获取当前选中的幻灯片"""
+    if not doc:
+        return None
+    
+    try:
+        controller = doc.getCurrentController()
+        # 获取当前页面
+        current_page = controller.getCurrentPage()
+        return current_page
+    except Exception as e:
+        print(f"Error getting current slide: {e}")
+        return None
+
+def get_slide_by_index(doc, index):
+    """通过索引获取幻灯片"""
+    if not doc:
+        return None
+    
+    try:
+        draw_pages = doc.getDrawPages()
+        if index < 0 or index >= draw_pages.getCount():
+            return None
+        return draw_pages.getByIndex(index)
+    except Exception as e:
+        print(f"Error getting slide by index: {e}")
+        return None
+
+def get_presentation_info(doc):
+    """获取演示文稿基本信息"""
+    if not doc:
+        return {"error": "No presentation available"}
+    
+    try:
+        draw_pages = doc.getDrawPages()
+        controller = doc.getCurrentController()
+        current_page = controller.getCurrentPage()
+        
+        # 查找当前页面的索引
+        current_index = -1
+        for i in range(draw_pages.getCount()):
+            if draw_pages.getByIndex(i) == current_page:
+                current_index = i
+                break
+        
+        info = {
+            "total_slides": draw_pages.getCount(),
+            "current_slide_index": current_index,
+            "presentation_name": doc.getTitle() if hasattr(doc, 'getTitle') else "Untitled"
+        }
+        
+        return info
+    except Exception as e:
+        return {"error": str(e)}
+
+def get_slide_content(slide, include_formatting=False):
+    """获取幻灯片内容"""
+    if not slide:
+        return {"error": "No slide provided"}
+    
+    try:
+        shapes = []
+        shape_count = slide.getCount()
+        
+        for i in range(shape_count):
+            shape = slide.getByIndex(i)
+            shape_info = {
+                "index": i,
+                "type": shape.getShapeType(),
+                "position": {"x": shape.Position.X, "y": shape.Position.Y},
+                "size": {"width": shape.Size.Width, "height": shape.Size.Height}
+            }
+            
+            # 检查是否包含文本
+            if hasattr(shape, 'getString'):
+                text = shape.getString()
+                shape_info["text"] = text
+                
+                if include_formatting and text:
+                    # 获取文本格式信息
+                    text_cursor = shape.createTextCursor()
+                    shape_info["formatting"] = {
+                        "font": text_cursor.CharFontName if hasattr(text_cursor, 'CharFontName') else "",
+                        "font_size": float(text_cursor.CharHeight) if hasattr(text_cursor, 'CharHeight') else 0,
+                        "color": int(text_cursor.CharColor) if hasattr(text_cursor, 'CharColor') else 0,
+                        "bold": text_cursor.CharWeight == 150.0 if hasattr(text_cursor, 'CharWeight') else False,
+                        "italic": text_cursor.CharPosture != 0 if hasattr(text_cursor, 'CharPosture') else False
+                    }
+            
+            shapes.append(shape_info)
+        
+        return {
+            "status": "success",
+            "shape_count": shape_count,
+            "shapes": shapes
+        }
+    except Exception as e:
+        return {"error": str(e)}
+
+def add_text_shape(slide, text, x=1000, y=1000, width=10000, height=2000, formatting=None):
+    """在幻灯片上添加文本框"""
+    if not slide:
+        return {"error": "No slide provided"}
+    
+    try:
+        # 创建文本框
+        doc = slide.getModel()  # 获取文档模型
+        shape = doc.createInstance("com.sun.star.drawing.TextShape")
+        
+        # 设置位置和大小
+        shape.Position = Point(x, y)
+        shape.Size = Size(width, height)
+        
+        # 添加到幻灯片
+        slide.add(shape)
+        
+        # 设置文本
+        shape.setString(text)
+        
+        # 应用格式化
+        if formatting:
+            text_cursor = shape.createTextCursor()
+            apply_text_formatting(text_cursor, formatting)
+        
+        return {
+            "status": "success",
+            "message": "Text shape added",
+            "shape_index": slide.getCount() - 1
+        }
+    except Exception as e:
+        return {"error": str(e)}
+
+def update_shape_text(slide, shape_index, new_text, formatting=None):
+    """更新形状中的文本"""
+    if not slide:
+        return {"error": "No slide provided"}
+    
+    try:
+        if shape_index < 0 or shape_index >= slide.getCount():
+            return {"error": "Invalid shape index"}
+        
+        shape = slide.getByIndex(shape_index)
+        
+        # 检查是否支持文本
+        if not hasattr(shape, 'setString'):
+            return {"error": "Shape does not support text"}
+        
+        # 设置新文本
+        shape.setString(new_text)
+        
+        # 应用格式化
+        if formatting:
+            text_cursor = shape.createTextCursor()
+            apply_text_formatting(text_cursor, formatting)
+        
+        return {"status": "success", "message": "Shape text updated"}
+    except Exception as e:
+        return {"error": str(e)}
+
+def apply_text_formatting(text_cursor, formatting):
+    """应用文本格式化"""
+    try:
+        if "font" in formatting and hasattr(text_cursor, 'CharFontName'):
+            text_cursor.CharFontName = formatting["font"]
+        if "font_size" in formatting and hasattr(text_cursor, 'CharHeight'):
+            text_cursor.CharHeight = float(formatting["font_size"])
+        if "color" in formatting and hasattr(text_cursor, 'CharColor'):
+            text_cursor.CharColor = int(formatting["color"])
+        if "bold" in formatting and hasattr(text_cursor, 'CharWeight'):
+            text_cursor.CharWeight = 150.0 if formatting["bold"] else 100.0
+        if "italic" in formatting and hasattr(text_cursor, 'CharPosture'):
+            text_cursor.CharPosture = 1 if formatting["italic"] else 0
+    except Exception as e:
+        print(f"Error applying formatting: {e}")
+
+def add_new_slide(doc, position=-1):
+    """添加新幻灯片"""
+    if not doc:
+        return {"error": "No presentation available"}
+    
+    try:
+        draw_pages = doc.getDrawPages()
+        
+        # 如果position为-1，添加到末尾
+        if position == -1:
+            position = draw_pages.getCount()
+        
+        # 插入新页面
+        new_page = draw_pages.insertNewByIndex(position)
+        
+        return {
+            "status": "success",
+            "message": "New slide added",
+            "slide_index": position,
+            "total_slides": draw_pages.getCount()
+        }
+    except Exception as e:
+        return {"error": str(e)}
+
+def delete_slide(doc, slide_index):
+    """删除幻灯片"""
+    if not doc:
+        return {"error": "No presentation available"}
+    
+    try:
+        draw_pages = doc.getDrawPages()
+        
+        if slide_index < 0 or slide_index >= draw_pages.getCount():
+            return {"error": "Invalid slide index"}
+        
+        # 删除页面
+        page = draw_pages.getByIndex(slide_index)
+        draw_pages.remove(page)
+        
+        return {
+            "status": "success",
+            "message": "Slide deleted",
+            "total_slides": draw_pages.getCount()
+        }
+    except Exception as e:
+        return {"error": str(e)}
+
+# API 端点
+
+@app.route('/api/connect', methods=['POST'])
+def api_connect():
+    """API端点：连接到LibreOffice"""
+    global desktop
+    try:
+        desktop = connect_to_libreoffice()
+        if desktop:
+            return jsonify({"status": "success", "message": "Connected to LibreOffice"})
+        else:
+            return jsonify({"status": "error", "message": "Failed to connect to LibreOffice"}), 500
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route('/api/presentation/info', methods=['GET'])
+def api_get_presentation_info():
+    """API端点：获取演示文稿信息"""
+    doc = get_current_presentation()
+    result = get_presentation_info(doc)
+    return jsonify(result)
+
+@app.route('/api/slide/current', methods=['GET'])
+def api_get_current_slide():
+    """API端点：获取当前幻灯片内容"""
+    include_formatting = request.args.get('include_formatting', 'false').lower() == 'true'
+    
+    doc = get_current_presentation()
+    if not doc:
+        return jsonify({"error": "No presentation available"}), 404
+    
+    slide = get_current_slide(doc)
+    if not slide:
+        return jsonify({"error": "No current slide"}), 404
+    
+    result = get_slide_content(slide, include_formatting)
+    return jsonify(result)
+
+@app.route('/api/slide/<int:index>', methods=['GET'])
+def api_get_slide_by_index(index):
+    """API端点：通过索引获取幻灯片内容"""
+    include_formatting = request.args.get('include_formatting', 'false').lower() == 'true'
+    
+    doc = get_current_presentation()
+    if not doc:
+        return jsonify({"error": "No presentation available"}), 404
+    
+    slide = get_slide_by_index(doc, index)
+    if not slide:
+        return jsonify({"error": f"Slide {index} not found"}), 404
+    
+    result = get_slide_content(slide, include_formatting)
+    return jsonify(result)
+
+@app.route('/api/slide/add-text', methods=['POST'])
+def api_add_text_to_slide():
+    """API端点：向幻灯片添加文本框"""
+    data = request.get_json()
+    text = data.get('text', '')
+    slide_index = data.get('slide_index', None)  # None表示当前幻灯片
+    x = data.get('x', 1000)
+    y = data.get('y', 1000)
+    width = data.get('width', 10000)
+    height = data.get('height', 2000)
+    formatting = data.get('formatting', None)
+    
+    if not text:
+        return jsonify({"error": "Missing 'text' parameter"}), 400
+    
+    doc = get_current_presentation()
+    if not doc:
+        return jsonify({"error": "No presentation available"}), 404
+    
+    if slide_index is None:
+        slide = get_current_slide(doc)
+    else:
+        slide = get_slide_by_index(doc, slide_index)
+    
+    if not slide:
+        return jsonify({"error": "Slide not found"}), 404
+    
+    result = add_text_shape(slide, text, x, y, width, height, formatting)
+    return jsonify(result)
+
+@app.route('/api/slide/update-shape', methods=['PUT'])
+def api_update_shape_text():
+    """API端点：更新形状文本"""
+    data = request.get_json()
+    slide_index = data.get('slide_index', None)
+    shape_index = data.get('shape_index')
+    new_text = data.get('text', '')
+    formatting = data.get('formatting', None)
+    
+    if shape_index is None:
+        return jsonify({"error": "Missing 'shape_index' parameter"}), 400
+    
+    doc = get_current_presentation()
+    if not doc:
+        return jsonify({"error": "No presentation available"}), 404
+    
+    if slide_index is None:
+        slide = get_current_slide(doc)
+    else:
+        slide = get_slide_by_index(doc, slide_index)
+    
+    if not slide:
+        return jsonify({"error": "Slide not found"}), 404
+    
+    result = update_shape_text(slide, shape_index, new_text, formatting)
+    return jsonify(result)
+
+@app.route('/api/slide/new', methods=['POST'])
+def api_add_slide():
+    """API端点：添加新幻灯片"""
+    data = request.get_json()
+    position = data.get('position', -1)
+    
+    doc = get_current_presentation()
+    result = add_new_slide(doc, position)
+    return jsonify(result)
+
+@app.route('/api/slide/<int:index>', methods=['DELETE'])
+def api_delete_slide(index):
+    """API端点：删除幻灯片"""
+    doc = get_current_presentation()
+    result = delete_slide(doc, index)
+    return jsonify(result)
+
+@app.route('/api/health', methods=['GET'])
+def api_health():
+    """API健康检查"""
+    try:
+        doc = get_current_presentation()
+        if doc:
+            status = "connected"
+            message = "Connected to Impress presentation"
+        else:
+            status = "no_presentation"
+            message = "LibreOffice is running but no Impress presentation is open"
+        
+        return jsonify({
+            "status": status,
+            "message": message,
+            "service": "impress-api"
+        })
+    except Exception as e:
+        logger.error(f"Health check error: {e}")
+        return jsonify({
+            "status": "error",
+            "message": str(e),
+            "service": "impress-api"
+        }), 503
+
+if __name__ == '__main__':
+    logger.info("启动 LibreOffice Impress API 服务...")
+    logger.info(f"Python 路径: {sys.path}")
+    logger.info(f"Python 版本: {sys.version}")
+    
+    # 测试 UNO 导入
+    try:
+        import uno
+        logger.info("UNO 模块导入成功")
+    except ImportError as e:
+        logger.error(f"无法导入 UNO 模块: {e}")
+        logger.error("请确保使用 LibreOffice 的 Python 或正确设置 PYTHONPATH")
+    
+    app.run(host='0.0.0.0', port=5011, debug=True)
