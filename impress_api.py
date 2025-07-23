@@ -333,7 +333,7 @@ def get_slide_background(doc, page_index=None):
 
         info = {"page_index": page_index}
 
-        # 2) 先尝试新版字段：FillStyle / FillColor -------------------------
+        # 2) 先尝试新版字段:FillStyle / FillColor -------------------------
         if _has_prop(page, "FillStyle"):
             logger.error(f"FillStyle")
 
@@ -351,7 +351,7 @@ def get_slide_background(doc, page_index=None):
             elif fill_style == "HATCH" and _has_prop(page, "FillHatchName"):
                 info["hatch_name"] = page.FillHatchName
 
-        # 3) 兼容老版本：Background / BackgroundColor ----------------------
+        # 3) 兼容老版本:Background / BackgroundColor ----------------------
         elif _has_prop(page, "Background") and page.Background:
 
             logger.error(f"Background properties: {page.Background.FillColor}")
@@ -612,7 +612,7 @@ def delete_slide(doc, slide_index):
 
 @app.route("/api/connect", methods=["POST"])
 def api_connect():
-    """API端点：连接到LibreOffice"""
+    """API端点:连接到LibreOffice"""
     global desktop
     global ctx
     try:
@@ -632,7 +632,7 @@ def api_connect():
 
 @app.route("/api/presentation/info", methods=["GET"])
 def api_get_presentation_info():
-    """API端点：获取演示文稿信息"""
+    """API端点:获取演示文稿信息"""
     doc = get_current_presentation()
     result = get_presentation_info(doc)
     return jsonify(result)
@@ -640,7 +640,7 @@ def api_get_presentation_info():
 
 @app.route("/api/slide/current", methods=["GET"])
 def api_get_current_slide():
-    """API端点：获取当前幻灯片内容"""
+    """API端点:获取当前幻灯片内容"""
     include_formatting = (
         request.args.get("include_formatting", "false").lower() == "true"
     )
@@ -659,7 +659,7 @@ def api_get_current_slide():
 
 @app.route("/api/slide/<int:index>", methods=["GET"])
 def api_get_slide_by_index(index):
-    """API端点：通过索引获取幻灯片内容"""
+    """API端点:通过索引获取幻灯片内容"""
     include_formatting = (
         request.args.get("include_formatting", "false").lower() == "true"
     )
@@ -678,7 +678,7 @@ def api_get_slide_by_index(index):
 
 @app.route("/api/slide/add-text", methods=["POST"])
 def api_add_text_to_slide():
-    """API端点：向幻灯片添加文本框"""
+    """API端点:向幻灯片添加文本框"""
     data = request.get_json()
     text = data.get("text", "test")
     slide_index = data.get("slide_index", None)  # None表示当前幻灯片
@@ -709,7 +709,7 @@ def api_add_text_to_slide():
 
 @app.route("/api/slide/update-shape", methods=["PUT"])
 def api_update_shape_text():
-    """API端点：更新形状文本"""
+    """API端点:更新形状文本"""
     data = request.get_json()
     slide_index = data.get("slide_index", None)
     shape_index = data.get("shape_index")
@@ -737,7 +737,7 @@ def api_update_shape_text():
 
 @app.route("/api/slide/selection", methods=["GET"])
 def api_get_selection():
-    """API端点：获取当前选中的对象"""
+    """API端点:获取当前选中的对象"""
     doc = get_current_presentation()
     if not doc:
         return jsonify({"error": "No presentation available"}), 404
@@ -766,7 +766,7 @@ def api_slide_bg():
 
 @app.route("/api/slide/new", methods=["POST"])
 def api_add_slide():
-    """API端点：添加新幻灯片"""
+    """API端点:添加新幻灯片"""
     data = request.get_json()
     position = data.get("position", -1)
 
@@ -777,7 +777,7 @@ def api_add_slide():
 
 @app.route("/api/slide/<int:index>", methods=["DELETE"])
 def api_delete_slide(index):
-    """API端点：删除幻灯片"""
+    """API端点:删除幻灯片"""
     doc = get_current_presentation()
     result = delete_slide(doc, index)
     return jsonify(result)
