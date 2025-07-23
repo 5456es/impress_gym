@@ -1,10 +1,12 @@
+import os
+
+
 import uno
 from com.sun.star.awt import Point, Size
 from com.sun.star.beans import PropertyValue
 from flask import Flask, jsonify, request
 import logging
 import sys
-import os
 
 # 设置日志
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -12,6 +14,30 @@ logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 desktop = None
+ctx=None
+
+def extract_formatting(shape):
+    """提取文本格式信息"""
+    formatting = {}
+    try:
+        text_cursor = shape.createTextCursor()
+        formatting = {
+            "font": text_cursor.CharFontName if hasattr(text_cursor, 'CharFontName') else "",
+            "font_size": float(text_cursor.CharHeight) if hasattr(text_cursor, 'CharHeight') else 0,
+            "color": text_cursor.CharColor if hasattr(text_cursor, 'CharColor') else 0,
+            "bold": text_cursor.CharWeight == 150.0 if hasattr(text_cursor, 'CharWeight') else False,
+            "italic": text_cursor.CharPosture != 0 if hasattr(text_cursor, 'CharPosture') else False,
+            "strikeout": text_cursor.CharStrikeout != 0 if hasattr(text_cursor, 'CharStrikeout') else False,
+            "alignment": {
+                0: "left",
+                1: "right",
+                2: "center",
+                3: "justify"
+            }.get(text_cursor.ParaAdjust, "unknown") if hasattr(text_cursor, 'ParaAdjust') else "unknown"
+        }
+    except Exception as e:
+        formatting = {"error": f"formatting extraction failed: {str(e)}"}
+    return formatting
 
 # 添加错误处理
 @app.errorhandler(Exception)
@@ -21,6 +47,7 @@ def handle_exception(e):
 
 def connect_to_libreoffice():
     """连接到正在运行的LibreOffice实例或启动新实例"""
+    global ctx
     try:
         logger.info("尝试连接到 LibreOffice...")
         local_context = uno.getComponentContext()
@@ -45,6 +72,7 @@ def get_current_presentation():
     global desktop
     if not desktop:
         desktop = connect_to_libreoffice()
+        
         if not desktop:
             return None
     
@@ -67,6 +95,102 @@ def get_current_slide(doc):
     except Exception as e:
         print(f"Error getting current slide: {e}")
         return None
+
+def get_current_selection(doc):
+    """获取当前选中的对象（shape），并提取文本及格式属性（若有）"""
+    try:
+        from com.sun.star.view import XSelectionSupplier
+
+        controller = doc.getCurrentController()
+        if not hasattr(controller, 'getSelection') and not isinstance(controller, XSelectionSupplier):
+            return {"error": "Controller does not support selection (XSelectionSupplier)"}
+
+        selection = controller.getSelection()
+        if not selection:
+            return {"status": "empty", "message": "No selection"}
+
+        def shape_info_from_shape(shape, index=None):
+            text = shape.getString() if hasattr(shape, "getString") else ""
+            info = {
+                "type": shape.getShapeType(),
+                "text": text,
+                "position": {"x": shape.Position.X, "y": shape.Position.Y},
+                "size": {"width": shape.Size.Width, "height": shape.Size.Height}
+            }
+            if index is not None:
+                info["index"] = index
+            if text:
+                info["formatting"] = extract_formatting(shape)
+            return info
+
+        # 多个选中对象
+        if hasattr(selection, 'getCount'):
+            count = selection.getCount()
+            shapes = [
+                shape_info_from_shape(selection.getByIndex(i), index=i)
+                for i in range(count)
+            ]
+            return {
+                "status": "success",
+                "selection_count": count,
+                "shapes": shapes
+            }
+
+        # 单个对象
+        elif hasattr(selection, 'getShapeType'):
+            return {
+                "status": "success",
+                "selection_count": 1,
+                "shape": shape_info_from_shape(selection)
+            }
+
+        else:
+            return {"status": "unknown selection type"}
+
+    except Exception as e:
+        import traceback
+        return {
+            "error": f"getCurrentSelection failed: {str(e)}",
+            "traceback": traceback.format_exc()
+        }
+
+
+def get_selected_text(doc):
+    """
+    doc  : 选填，XModel；若为 None，则用 ctx 去拿 current component
+    """
+    smgr = ctx.ServiceManager
+    desktop = smgr.createInstanceWithContext("com.sun.star.frame.Desktop", ctx)
+
+    if doc is None:
+        doc = desktop.getCurrentComponent()
+    if not doc:
+        return {"error": "no-document"}
+
+    ctrl = doc.getCurrentController()
+
+    try:
+        helper = smgr.createInstanceWithContext(
+            "com.sun.star.frame.DispatchHelper", ctx
+        )
+        helper.executeDispatch(ctrl.getFrame(), ".uno:Copy", "", 0, ())
+
+        clip = smgr.createInstanceWithContext(
+            "com.sun.star.datatransfer.clipboard.SystemClipboard", ctx
+        )
+        xfer = clip.getContents()
+
+        for flav in xfer.getTransferDataFlavors():
+            if flav.MimeType.lower().startswith("text/plain"):
+                return {
+                    "status": "ok-clipboard",
+                    "text": str(xfer.getTransferData(flav))
+                }
+
+    except Exception as e:
+        print("clipboard fallback failed:", e)
+
+    return {"error": "no-text-selection"}
 
 def get_slide_by_index(doc, index):
     """通过索引获取幻灯片"""
@@ -109,8 +233,14 @@ def get_presentation_info(doc):
     except Exception as e:
         return {"error": str(e)}
 
-def get_slide_content(slide, include_formatting=False):
+def get_slide_content(slide, include_formatting=True):
     """获取幻灯片内容"""
+    align_map = {
+    0: "left",
+    1: "right",
+    3: "center",
+    2: "justify"
+}
     if not slide:
         return {"error": "No slide provided"}
     
@@ -134,14 +264,9 @@ def get_slide_content(slide, include_formatting=False):
                 
                 if include_formatting and text:
                     # 获取文本格式信息
-                    text_cursor = shape.createTextCursor()
-                    shape_info["formatting"] = {
-                        "font": text_cursor.CharFontName if hasattr(text_cursor, 'CharFontName') else "",
-                        "font_size": float(text_cursor.CharHeight) if hasattr(text_cursor, 'CharHeight') else 0,
-                        "color": int(text_cursor.CharColor) if hasattr(text_cursor, 'CharColor') else 0,
-                        "bold": text_cursor.CharWeight == 150.0 if hasattr(text_cursor, 'CharWeight') else False,
-                        "italic": text_cursor.CharPosture != 0 if hasattr(text_cursor, 'CharPosture') else False
-                    }
+                    
+                    
+                    shape_info["formatting"] = extract_formatting(shape)
             
             shapes.append(shape_info)
         
@@ -282,6 +407,7 @@ def delete_slide(doc, slide_index):
 def api_connect():
     """API端点：连接到LibreOffice"""
     global desktop
+    global ctx
     try:
         desktop = connect_to_libreoffice()
         if desktop:
@@ -385,6 +511,25 @@ def api_update_shape_text():
         return jsonify({"error": "Slide not found"}), 404
     
     result = update_shape_text(slide, shape_index, new_text, formatting)
+    return jsonify(result)
+
+@app.route('/api/slide/selection', methods=['GET'])
+def api_get_selection():
+    """API端点：获取当前选中的对象"""
+    doc = get_current_presentation()
+    if not doc:
+        return jsonify({"error": "No presentation available"}), 404
+    
+    result = get_current_selection(doc)
+    return jsonify(result)
+
+@app.route('/api/slide/text-selection', methods=['GET'])
+def api_get_text_selection():
+    doc = get_current_presentation()
+    if not doc:
+        return jsonify({"error": "No presentation available"}), 404
+
+    result = get_selected_text(doc)
     return jsonify(result)
 
 @app.route('/api/slide/new', methods=['POST'])

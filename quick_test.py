@@ -18,20 +18,9 @@ time.sleep(2)
 
 print("测试 API 端点...")
 
-# 1. 健康检查
-print("\n1. 健康检查:")
-resp = requests.get("http://127.0.0.1:5011/api/health")
-print(f"状态码: {resp.status_code}")
-print(f"响应: {resp.text}")
-
-# 2. 连接测试
-print("\n2. 连接测试:")
-resp = requests.post("http://127.0.0.1:5011/api/connect")
-print(f"状态码: {resp.status_code}")
-print(f"响应: {resp.text}")
-
-# 3. 获取演示文稿信息
-print("\n3. 演示文稿信息:")
-resp = requests.get("http://127.0.0.1:5011/api/presentation/info")
-print(f"状态码: {resp.status_code}")
-print(f"响应: {resp.text}")
+params = {
+    "include_formatting": "true"  # 或 "false"
+}
+# /api/slide/current	
+response = requests.get('http://localhost:5011/api/slide/current',params=params)
+print("Response from /api/slide/current:", response.status_code, response.text)
