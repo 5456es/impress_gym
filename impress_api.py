@@ -294,12 +294,14 @@ def get_slide_by_index(doc, index):
     except Exception as e:
         print(f"Error getting slide by index: {e}")
         return None
-    
+
+
 def _uno_color_to_hex(color_long):
     logger.error(f"color_long:{color_long}")
     if color_long is None:
         return ""
     return f"#{(color_long >> 16) & 0xFF:02X}{(color_long >> 8) & 0xFF:02X}{color_long & 0xFF:02X}"
+
 
 def _has_prop(obj, prop):
     """判断 UNO 对象是否包含某属性（用 PropertySetInfo）"""
@@ -307,6 +309,7 @@ def _has_prop(obj, prop):
         return obj.getPropertySetInfo().hasPropertyByName(prop)
     except Exception:
         return False
+
 
 def get_slide_background(doc, page_index=None):
     """
@@ -334,7 +337,7 @@ def get_slide_background(doc, page_index=None):
         if _has_prop(page, "FillStyle"):
             logger.error(f"FillStyle")
 
-            fill_style = str(page.FillStyle).split(".")[-1]   # e.g. SOLID/NONE/GRADIENT
+            fill_style = str(page.FillStyle).split(".")[-1]  # e.g. SOLID/NONE/GRADIENT
             info["fill_style"] = fill_style
             if fill_style == "SOLID" and _has_prop(page, "FillColor"):
                 info["color"] = _uno_color_to_hex(page.FillColor)
@@ -350,11 +353,9 @@ def get_slide_background(doc, page_index=None):
 
         # 3) 兼容老版本：Background / BackgroundColor ----------------------
         elif _has_prop(page, "Background") and page.Background:
-            
-            
+
             logger.error(f"Background properties: {page.Background.FillColor}")
             info["fill_style"] = "SOLID"
-            
 
         # 4) 若本页无自定义背景，再查看母版页 ------------------------------
         else:
@@ -362,8 +363,11 @@ def get_slide_background(doc, page_index=None):
             if mp and _has_prop(mp, "Background") and mp.Background:
                 info["inherit_from_master"] = {
                     "fill_style": "SOLID",
-                    "color": _uno_color_to_hex(mp.BackgroundColor)
-                                if _has_prop(mp, "BackgroundColor") else None
+                    "color": (
+                        _uno_color_to_hex(mp.BackgroundColor)
+                        if _has_prop(mp, "BackgroundColor")
+                        else None
+                    ),
                 }
             else:
                 info["fill_style"] = "NONE"
@@ -372,7 +376,9 @@ def get_slide_background(doc, page_index=None):
 
     except Exception as e:
         import traceback
+
         return {"error": str(e), "traceback": traceback.format_exc()}
+
 
 def get_presentation_info(doc):
     """获取演示文稿基本信息"""
@@ -403,6 +409,7 @@ def get_presentation_info(doc):
     except Exception as e:
         return {"error": str(e)}
 
+
 def get_slide_content(slide, include_formatting=True):
     """获取幻灯片内容，包括形状、背景色、备注"""
 
@@ -410,7 +417,7 @@ def get_slide_content(slide, include_formatting=True):
         return {
             "r": (color_int >> 16) & 0xFF,
             "g": (color_int >> 8) & 0xFF,
-            "b": color_int & 0xFF
+            "b": color_int & 0xFF,
         }
 
     if not slide:
@@ -443,8 +450,6 @@ def get_slide_content(slide, include_formatting=True):
 
             shapes.append(shape_info)
 
-
-
         # 提取备注内容
         notes_text = ""
         if slide.getNotesPage():
@@ -459,21 +464,18 @@ def get_slide_content(slide, include_formatting=True):
         return {
             "status": "success",
             "shape_count": shape_count,
-
             "notes": notes_text.strip(),
-            "shapes": shapes
+            "shapes": shapes,
         }
 
     except Exception as e:
         import traceback
-        return {
-            "error": str(e),
-            "traceback": traceback.format_exc()
-        }
+
+        return {"error": str(e), "traceback": traceback.format_exc()}
 
 
 def add_text_shape(
-    slide, text, x=1000, y=1000, width=10000, height=2000, formatting=None
+    doc, slide, text, x=1000, y=1000, width=10000, height=2000, formatting=None
 ):
     """在幻灯片上添加文本框"""
     if not slide:
@@ -481,7 +483,7 @@ def add_text_shape(
 
     try:
         # 创建文本框
-        doc = slide.getModel()  # 获取文档模型
+
         shape = doc.createInstance("com.sun.star.drawing.TextShape")
 
         # 设置位置和大小
@@ -492,7 +494,8 @@ def add_text_shape(
         slide.add(shape)
 
         # 设置文本
-        shape.setString(text)
+        text = shape.Text
+        text.setString(new_text)
 
         # 应用格式化
         if formatting:
@@ -524,7 +527,9 @@ def update_shape_text(slide, shape_index, new_text, formatting=None):
             return {"error": "Shape does not support text"}
 
         # 设置新文本
+
         shape.setString(new_text)
+
 
         # 应用格式化
         if formatting:
@@ -675,7 +680,7 @@ def api_get_slide_by_index(index):
 def api_add_text_to_slide():
     """API端点：向幻灯片添加文本框"""
     data = request.get_json()
-    text = data.get("text", "")
+    text = data.get("text", "test")
     slide_index = data.get("slide_index", None)  # None表示当前幻灯片
     x = data.get("x", 1000)
     y = data.get("y", 1000)
@@ -698,7 +703,7 @@ def api_add_text_to_slide():
     if not slide:
         return jsonify({"error": "Slide not found"}), 404
 
-    result = add_text_shape(slide, text, x, y, width, height, formatting)
+    result = add_text_shape(doc, slide, text, x, y, width, height, formatting)
     return jsonify(result)
 
 
@@ -708,7 +713,7 @@ def api_update_shape_text():
     data = request.get_json()
     slide_index = data.get("slide_index", None)
     shape_index = data.get("shape_index")
-    new_text = data.get("text", "")
+    new_text = data.get("text", "?")
     formatting = data.get("formatting", None)
 
     if shape_index is None:
@@ -750,11 +755,12 @@ def api_get_text_selection():
     result = get_selected_text(doc)
     return jsonify(result)
 
+
 @app.route("/api/slide/background")
 def api_slide_bg():
-    
+
     doc = get_current_presentation()
-    bg_info = get_slide_background(doc)     # 当前页
+    bg_info = get_slide_background(doc)  # 当前页
     return jsonify(bg_info)
 
 

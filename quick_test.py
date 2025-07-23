@@ -22,5 +22,5 @@ params = {
     "include_formatting": "true"  # 或 "false"
 }
 # /api/slide/current	
-response = requests.get('http://localhost:5011/api/slide/background',params=params)
-print("Response from /api/slide/current:", response.status_code, response.text)
+response = requests.post("http://localhost:5011/api/slide/new", json={})
+print("Response from /api/slide/add-text:", response.status_code, response.text)
