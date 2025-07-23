@@ -16,6 +16,59 @@ app = Flask(__name__)
 desktop = None
 ctx=None
 
+
+def extract_table_info(table_shape):
+    """
+    给定 com.sun.star.drawing.TableShape → 返回行数、列数与全部单元格内容
+    {
+        "rows": <int>,
+        "columns": <int>,
+        "data": [  # data[row][col] = str
+            ["A1", "B1", ...],
+            ["A2", "B2", ...],
+            ...
+        ]
+    }
+    """
+    try:
+        model = getattr(table_shape, "Model", None)
+        if model is None:
+            return {"error": "TableShape has no Model"}
+
+        rows = model.Rows.getCount()          # 行数
+        cols = model.Columns.getCount()       # 列数
+
+        def _cell_to_str(cell):
+            """兼容 getString / String / getText().getString() 三种写法"""
+            if hasattr(cell, "getString"):
+                return cell.getString()
+            if hasattr(cell, "String"):
+                return cell.String
+            if hasattr(cell, "getText"):
+                return cell.getText().getString()
+            return ""
+
+        data = []
+        for r in range(rows):
+            row_vals = []
+            for c in range(cols):
+                try:
+                    # 必须走 model.getCellByPosition(col, row) :contentReference[oaicite:0]{index=0}
+                    cell = model.getCellByPosition(c, r)
+                    row_vals.append(_cell_to_str(cell))
+                except Exception:
+                    row_vals.append("")
+            data.append(row_vals)
+
+        return {"rows": rows, "columns": cols, "data": data}
+
+    except Exception as e:
+        import traceback
+        return {
+            "error": f"extract_table_info failed: {e}",
+            "traceback": traceback.format_exc()
+        }
+
 def extract_formatting(shape):
     """提取文本格式信息"""
     formatting = {}
@@ -121,6 +174,8 @@ def get_current_selection(doc):
                 info["index"] = index
             if text:
                 info["formatting"] = extract_formatting(shape)
+            if shape.getShapeType() == "com.sun.star.drawing.TableShape":
+                info["table"] = extract_table_info(shape)
             return info
 
         # 多个选中对象
@@ -235,12 +290,7 @@ def get_presentation_info(doc):
 
 def get_slide_content(slide, include_formatting=True):
     """获取幻灯片内容"""
-    align_map = {
-    0: "left",
-    1: "right",
-    3: "center",
-    2: "justify"
-}
+
     if not slide:
         return {"error": "No slide provided"}
     
@@ -265,9 +315,11 @@ def get_slide_content(slide, include_formatting=True):
                 if include_formatting and text:
                     # 获取文本格式信息
                     
-                    
                     shape_info["formatting"] = extract_formatting(shape)
-            
+                    
+            #  如果是table，获取基本信息，包括行列以及内容
+            if shape.getShapeType() == "com.sun.star.drawing.TableShape":
+                shape_info["table"] = extract_table_info(shape)
             shapes.append(shape_info)
         
         return {
