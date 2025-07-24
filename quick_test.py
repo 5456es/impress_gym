@@ -28,23 +28,34 @@ os.environ['NO_PROXY'] = 'localhost,127.0.0.1,::1'
 
 
 
-# response = requests.get("http://localhost:5011/api/slide/current", json={})
-# response=requests.post("http://localhost:5011/api/slide/new", json={})
+response = requests.get("http://localhost:5011/api/slide/current", json={})
+response=requests.post("http://localhost:5011/api/slide/new", json={})
+print("Response from /api/slide/current:", response.status_code, response.text)
+time.sleep(10)
+response = requests.delete("http://localhost:5011/api/slide/0", json={})
 
-
-
-# print("Response from /api/slide/current:", response.status_code, response.text)
+print("Response from /api/slide/current:", response.status_code, response.text)
 # select box
 ### set up boxes
 
-textboxes=["123", "456", "789"]
+textboxes=["12345678999", "456", "789"]
 
 
 for text in textboxes:
     response = requests.post("http://localhost:5011/api/slide/add-text", json={
         "text": text,
-        "slide_index":2,
-        "x": random.randint(1000, 2000),
-        "y": random.randint(1000, 2000),
+        "slide_index":0,
+        "x": random.randint(1000, 20000),
+        "y": random.randint(1000, 14000),
+        "formatting": {
+            "bold": random.choice([True, False]),
+            "italic": random.choice([True, False]),
+            "font_size": random.randint(10, 50),
+            # "color": 0x000000
+            "alignment": random.choice(["left", "right", "center", "justify"])
+        }
     })
     print(f"Response from /api/slide/add-text for {text}:", response.status_code, response.text)
+
+response = requests.get("http://localhost:5011/api/slide/selection", json={})
+print("Response from /api/slide/selection:", response.status_code, response.text)

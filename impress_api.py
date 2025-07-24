@@ -9,6 +9,9 @@ import logging
 import sys
 import json
 
+
+from com.sun.star.style.ParagraphAdjust import LEFT, RIGHT, CENTER, BLOCK
+
 # 设置日志
 logging.basicConfig(
     level=logging.DEBUG, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
@@ -556,6 +559,16 @@ def apply_text_formatting(text_cursor, formatting):
             text_cursor.CharWeight = 150.0 if formatting["bold"] else 100.0
         if "italic" in formatting and hasattr(text_cursor, "CharPosture"):
             text_cursor.CharPosture = 1 if formatting["italic"] else 0
+
+        if "alignment" in formatting and hasattr(text_cursor, "ParaAdjust"):
+            alignment_map = {
+                "left": LEFT,
+                "right": RIGHT,
+                "center": CENTER,
+                "justify": BLOCK,
+            }
+            align_value = alignment_map.get(formatting["alignment"].lower(), LEFT)
+            text_cursor.ParaAdjust = align_value
     except Exception as e:
         print(f"Error applying formatting: {e}")
 
@@ -644,7 +657,7 @@ def api_get_presentation_info():
 def api_get_current_slide():
     """API端点:获取当前幻灯片内容"""
     include_formatting = (
-        request.args.get("include_formatting", "false").lower() == "true"
+        request.args.get("include_formatting", "true").lower() == "true"
     )
 
     doc = get_current_presentation()
