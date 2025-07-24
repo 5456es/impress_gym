@@ -21,10 +21,14 @@ class TaskType(Enum):
     SELECT_BOX = "select_box"
     SELECT_CONTENT = "select_content"
     TEXT_FORMATTING_TEXTBOX = "text_formatting_textbox"
-    TEXT_FORMATTING_CONTENT = "text_formatting_content"
     INSERT_TABLE = "insert_table"
-    DELETE_TEXT = "delete_text"
-    REPLACE_TEXT = "replace_text"
+    DELETE_TEXT_TEXTBOX = "delete_text_textbox"
+    
+    
+    TEXT_FORMATTING_CONTENT_ = "text_formatting_content"    
+    REPLACE_TEXT_ = "replace_text"
+    INSERT_NOTE_ = "insert_note"
+    FULLFILL_TABLE_ = "fullfill_table"
     
 
 
@@ -46,7 +50,7 @@ class FullLLMTaskGenerator:
         
         # 直接提示版本：指令中包含具体内容
         self.direct_prompts = {
-            "select_box":"""
+            "select_box": """
             
             You are a task generator for LibreOffice Impress automation. Generate a realistic textbox selection task.
             
@@ -164,5 +168,68 @@ class FullLLMTaskGenerator:
             
             Consider aiming to apply the formatting to the entire textbox, not just a part of it. So when you describe the textbox, it should be clear that the formatting applies to the whole textbox. If 
             you don't mention the 'textbox' but the content, it should be the full content of the textbox.
+            """,
+            
+            "insert_table": """
+            
+            You are a task generator for LibreOffice Impress automation. Generate a realistic blank table insertion task.
+            
+            Return ONLY a valid JSON object with this exact structure:
+            {
+                "instruction": "Natural language instruction for the user - MUST specify the rows and columns of the table to insert",
+                "content": {
+                    "table_structure": {
+                        "rows": "Number of rows in the table to insert",
+                        "columns": "Number of columns in the table to insert"
+                    },                    
+                },
+                "expected_result": {
+                    "verification_type": "table_insertion",
+                    "table_structure": {
+                        "rows": "Number of rows in the table to insert",
+                        "columns": "Number of columns in the table to insert"
+                    }
+                },
+                "metadata": {
+                    "scenario": "brief description of use case",
+                    "difficulty": "easy|medium|hard"
+                }
+            }
+            
+            IMPORTANT:
+            Only instruct the model to insert a blank table, not to fill it with any data. The instruction should specify the number of rows and columns in the table. Examples:
+                - "Insert a table with 3 rows and 4 columns"
+                - "Create a table with 5 rows and 2 columns for data entry"
+                - "Add a table with 2 rows and 3 columns to the slide"
+            """,
+            
+            "delete_text_textbox": """
+            You are a task generator for LibreOffice Impress automation. Generate a realistic text deletion task.
+            
+            Return ONLY a valid JSON object with this exact structure:
+            {
+                "instruction": "Natural language instruction for the user - MUST specify the text to delete",
+                "content": {
+                    "text_to_delete": "The specific text to delete - shoule be full text in the textbox, appropriate length for the use case"
+                },
+                "expected_result": {
+                    "verification_type": "text_deletion",
+                    "deleted_text": "The specific text that was deleted - should be the same as text_to_delete"
+                },
+                "metadata": {
+                    "scenario": "brief description of use case",
+                    "difficulty": "easy|medium|hard"
+                }
+            }
+            
+            IMPORTANT:
+            The instruction should describe the TYPE of text to delete, also give the specific text in it. Examples:
+                - "Delete the email address"
+                - "Delete the project description 'This project aims to improve...'"
+                - "Delete the conclusion paragraph 'In conclusion...'"
+                - "Delete the title 'Project Overview'"
+                - "Delete the phone number '(555) 123-4567'"
+            
+            The text to delete should be the full text in the textbox, appropriate length for the use case. It should not be too long. Also the full text to delete should be specified in the instruction, not just the specific text to delete.
             """
         }
