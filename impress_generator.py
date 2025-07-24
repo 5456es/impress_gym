@@ -117,7 +117,7 @@ class FullLLMTaskGenerator:
             IMPORTANT:
             The instruction should also describe the TYPE of content to select, not just giving the specific text. Examples:
                 - "Select the email address 'contact@company.com' in the document"
-                - "Highlight the entire paragraph about the project timeline"
+                - "Highlight the entire paragraph about the project timeline by selecting the text"
                 - "Select the phone number '(555) 123-4567' in the contact section"
                 
             The full text should be realistic and not too long, just a few sentences is enough.
@@ -131,11 +131,12 @@ class FullLLMTaskGenerator:
             {
                 "instruction": "Natural language instruction for the user - MUST specify which textbox to apply format and how",
                 "content": {
-                    "textbox": "The description of the textbox to apply format - MUST include the text in it",
+                    "text_in_target_textbox": "The exact full text in the textbox where the formatting should be applied - appropriate length for the use case",
                     "formatting": "MUST be a JSON object with EXACTLY ONE property. Examples: {\"bold\": true} OR {\"font_size\": 16} OR {\"font\": \"Arial\"} OR {\"color\": \"0xFF0000\"} OR {\"strikethrough\": true} OR {\"alignment\": \"center\"} "
                 },
                 "expected_result": {
                     "verification_type": "has_formatting",
+                    "text_in_target_textbox": "The exact full text in the textbox after formatting - should be the same as text_in_target_textbox",
                     "expected_formatting": "same as formatting above"
                 },
                 "metadata": {
@@ -167,7 +168,7 @@ class FullLLMTaskGenerator:
             → formatting: {"alignment": "center"}
             
             Consider aiming to apply the formatting to the entire textbox, not just a part of it. So when you describe the textbox, it should be clear that the formatting applies to the whole textbox. If 
-            you don't mention the 'textbox' but the content, it should be the full content of the textbox.
+            you either mention the 'textbox' or point out the full content of the textbox.
             """,
             
             "insert_table": """
@@ -179,15 +180,15 @@ class FullLLMTaskGenerator:
                 "instruction": "Natural language instruction for the user - MUST specify the rows and columns of the table to insert",
                 "content": {
                     "table_structure": {
-                        "rows": "Number of rows in the table to insert",
-                        "columns": "Number of columns in the table to insert"
+                        "rows": "Number of rows in the table to insert(range 5 to 15, diverse)",
+                        "columns": "Number of columns in the table to insert(range 5 to 15)"
                     },                    
                 },
                 "expected_result": {
                     "verification_type": "table_insertion",
                     "table_structure": {
-                        "rows": "Number of rows in the table to insert",
-                        "columns": "Number of columns in the table to insert"
+                        "rows": "Number of rows in the table to insert(range 5 to 15)",
+                        "columns": "Number of columns in the table to insert(range 5 to 15)"
                     }
                 },
                 "metadata": {
@@ -198,8 +199,8 @@ class FullLLMTaskGenerator:
             
             IMPORTANT:
             Only instruct the model to insert a blank table, not to fill it with any data. The instruction should specify the number of rows and columns in the table. Examples:
-                - "Insert a table with 3 rows and 4 columns"
-                - "Create a table with 5 rows and 2 columns for data entry"
+                - "Insert a table with 3 rows and 6 columns"
+                - "Create a table with 7 rows and 5 columns for data entry"
                 - "Add a table with 2 rows and 3 columns to the slide"
             """,
             
@@ -357,3 +358,90 @@ class FullLLMTaskGenerator:
         except Exception as e:
             print(f"LLM generation failed for {task_type.value}: {e}")
         
+class LibreOfficeImpressTaskGenerator:
+    def __init__(self, llm_api_key: str, model: str = "gpt-4o", direct_instruction_ratio: float = 1):
+        self.llm_generator = FullLLMTaskGenerator(llm_api_key, model)
+        self.direct_instruction_ratio = direct_instruction_ratio
+        
+        self.base_config = [
+            {
+                "type": "launch",
+                "parameters": {
+                    "command": [
+                        "libreoffice --impress --accept='socket,host=127.0.0.1,port=2002;urp;StarOffice.ServiceManager'"
+                    ],
+                    "shell": True
+                }
+            },
+            {
+                "type": "sleep",
+                "parameters": {
+                    "seconds": 5
+                }
+            },
+            {
+                "type": "execute",
+                "parameters": {
+                    "command": [
+                        "curl -X POST localhost:5011/api/connect"
+                    ],
+                    "shell": True
+                }
+            }
+        ]
+        
+    def create_task_from_llm_data(self, task_id: str, task_type: TaskType, task_data: TaskData) -> Dict[str, Any]:
+        """根据LLM生成的数据创建完整任务"""
+        
+        base_task = {
+            "id": task_id,
+            "snapshot": "libreoffice_impress",
+            "instruction": task_data.instruction,
+            "source": "",
+            "config": self.base_config.copy(),
+            "trajectory": "trajectories/",
+            "related_apps": [],
+            "metadata": task_data.metadata
+        }
+        
+        if task_type == TaskType.SELECT_BOX:
+            return self._create_select_box_task(base_task, task_data)
+        elif task_type == TaskType.SELECT_CONTENT:
+            return self._create_select_content_task(base_task, task_data)
+        elif task_type == TaskType.TEXT_FORMATTING_TEXTBOX:
+            return self._create_text_formatting_task(base_task, task_data)
+        elif task_type == TaskType.INSERT_TABLE:
+            return self._create_insert_table_task(base_task, task_data)
+        elif task_type == TaskType.DELETE_TEXT_TEXTBOX:
+            return self._create_delete_text_task(base_task, task_data)
+        
+    def _create_select_box_task(self, base_task: Dict[str, Any], task_data: TaskData) -> Dict[str, Any]:
+        """创建选框任务"""
+    # {
+    #     "instruction": "Select the textbox that contains the slide's key takeaway message which is 'The merger will increase our market share by 15%.'",
+    #     "content": {
+    #         "text_in_textbox": "The merger will increase our market share by 15%.",
+    #         "environment_excluding_the_target_textbox": {
+    #             "other_textboxes": [
+    #                 "Introduction: We are excited to discuss the upcoming merger and its benefits.",
+    #                 "Financial Overview: The merger is projected to bring a 10% increase in revenue."
+    #             ],
+    #             "background_color": "blue"
+    #         }
+    #     },
+    #     "expected_result": {
+    #         "verification_type": "textbox_selection",
+    #         "text_in_textbox": "The merger will increase our market share by 15%."
+    #     },
+    #     "metadata": {
+    #         "scnario": "Select the key takeaway message in a business presentation about a merger.",
+    #         "difficulty": "medium",
+    #         "scenario_category": "business_presentation",
+    #         "generated_by_llm": true,
+    #         "instruction_type": "direct"
+    #     }
+    # }
+    
+    ### 1. 先set up 框
+        target_textbox= task_data.content["text_in_textbox"]
+        env_textboxes= task_data.content["environment_excluding_the_target_textbox"].get("other_textboxes", [])

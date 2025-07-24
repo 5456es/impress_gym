@@ -169,12 +169,14 @@ def get_current_presentation():
 def get_current_slide(doc):
     """获取当前选中的幻灯片"""
     if not doc:
+        logger.error("No document provided to get_current_slide")
         return None
 
     try:
         controller = doc.getCurrentController()
         # 获取当前页面
         current_page = controller.getCurrentPage()
+        logger.debug(f"Current page: {current_page}")
         return current_page
     except Exception as e:
         print(f"Error getting current slide: {e}")
@@ -420,7 +422,7 @@ def get_slide_content(slide, include_formatting=True):
             "b": color_int & 0xFF,
         }
 
-    if not slide:
+    if slide is None:
         return {"error": "No slide provided"}
 
     try:
@@ -478,7 +480,7 @@ def add_text_shape(
     doc, slide, text, x=1000, y=1000, width=10000, height=2000, formatting=None
 ):
     """在幻灯片上添加文本框"""
-    if not slide:
+    if slide is None:
         return {"error": "No slide provided"}
 
     try:
@@ -494,8 +496,8 @@ def add_text_shape(
         slide.add(shape)
 
         # 设置文本
-        text = shape.Text
-        text.setString(new_text)
+        text_box = shape.Text
+        text_box.setString(text)
 
         # 应用格式化
         if formatting:
@@ -513,7 +515,7 @@ def add_text_shape(
 
 def update_shape_text(slide, shape_index, new_text, formatting=None):
     """更新形状中的文本"""
-    if not slide:
+    if slide is None:
         return {"error": "No slide provided"}
 
     try:
@@ -650,7 +652,9 @@ def api_get_current_slide():
         return jsonify({"error": "No presentation available"}), 404
 
     slide = get_current_slide(doc)
-    if not slide:
+    logger.debug(f"Current slide: {slide}")
+    if slide is None:
+        logger.error("No current slide found")
         return jsonify({"error": "No current slide"}), 404
 
     result = get_slide_content(slide, include_formatting)
@@ -669,7 +673,7 @@ def api_get_slide_by_index(index):
         return jsonify({"error": "No presentation available"}), 404
 
     slide = get_slide_by_index(doc, index)
-    if not slide:
+    if slide is None:
         return jsonify({"error": f"Slide {index} not found"}), 404
 
     result = get_slide_content(slide, include_formatting)
@@ -700,7 +704,7 @@ def api_add_text_to_slide():
     else:
         slide = get_slide_by_index(doc, slide_index)
 
-    if not slide:
+    if  slide is None:
         return jsonify({"error": "Slide not found"}), 404
 
     result = add_text_shape(doc, slide, text, x, y, width, height, formatting)
