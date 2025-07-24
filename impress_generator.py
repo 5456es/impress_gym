@@ -541,15 +541,25 @@ class LibreOfficeImpressTaskGenerator:
         
         # 3. 设置验证
         base_task["evaluator"] = {
+            "postconfig":{
+                    "type": "execute",
+                    "parameters": {
+                        "command": [
+                        "python",
+                        "-c",
+                        "import pyautogui; import time; pyautogui.press('delete'); time.sleep(0.5);"
+                        ]
+                    }
+                }
             "func": "selection_verification",
             "result": {
-                "type": "textbox_selection_type",
+                "type": "textbox_selection",
                 "verification": expected["verification_type"]
             },
             "expected": {
                 "type": "rule",
                 "rules": {
-                    "text_in_selected_textbox": expected["text_in_textbox"],
+                    "text_in_selected_textbox": task_data.content["environment_excluding_the_target_textbox"]["other_textboxes"],
                 }
             }
         }

@@ -186,6 +186,24 @@ def get_current_slide(doc):
         return None
 
 
+# from uno import UnoRuntime
+# from com.sun.star.text import XTextRange
+# from com.sun.star.container import XIndexAccess
+
+# def in_text_edit(selection) -> bool:
+#     """True  ⇒ 正在文本编辑
+#        False ⇒ 仅选中了形状"""
+#     # ① 直接就是文字
+#     if UnoRuntime.queryInterface(XTextRange, selection):
+#         return True
+
+#     # ② 可能是多段选区，取第 0 个来看
+#     idx = UnoRuntime.queryInterface(XIndexAccess, selection)
+#     if idx and idx.getCount() > 0:
+#         return UnoRuntime.queryInterface(XTextRange, idx.getByIndex(0)) is not None
+
+#     return False
+
 def get_current_selection(doc):
     """获取当前选中的对象（shape），并提取文本及格式属性（若有）"""
     try:
@@ -219,6 +237,7 @@ def get_current_selection(doc):
                 info["table"] = extract_table_info(shape)
             return info
 
+
         # 多个选中对象
         if hasattr(selection, "getCount"):
             count = selection.getCount()
@@ -229,13 +248,22 @@ def get_current_selection(doc):
             return {"status": "success", "selection_count": count, "shapes": shapes}
 
         # 单个对象
-        elif hasattr(selection, "getShapeType"):
+        
+        elif hasattr(selection, "getString") and not hasattr(selection, "getShapeType"):
+            # 可能是正在编辑文本
+            return {"status": "editing", "text": selection.getString()}
+        
+        
+
+            
+           
             return {
                 "status": "success",
                 "selection_count": 1,
                 "shape": shape_info_from_shape(selection),
             }
-
+        # 检查选中的是文本而非 shape
+        
         else:
             return {"status": "unknown selection type"}
 
