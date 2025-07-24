@@ -551,15 +551,15 @@ class LibreOfficeImpressTaskGenerator:
                         ]
                     }
                 }
-            "func": "selection_verification",
+            "func": "textbox_selection_verification",
             "result": {
-                "type": "textbox_selection",
+                "type": "current_content",
                 "verification": expected["verification_type"]
             },
             "expected": {
                 "type": "rule",
                 "rules": {
-                    "text_in_selected_textbox": task_data.content["environment_excluding_the_target_textbox"]["other_textboxes"],
+                    "other_textboxes": task_data.content["environment_excluding_the_target_textbox"]["other_textboxes"],
                 }
             }
         }

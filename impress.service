@@ -1,0 +1,19 @@
+[Unit]
+Description=Impress API Flask Server
+After=network.target graphical.target
+StartLimitIntervalSec=60
+StartLimitBurst=4
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /home/user/impress_api.py
+WorkingDirectory=/home/user
+User=user
+Restart=on-failure
+RestartSec=2
+Environment="DISPLAY=:0"
+Environment="DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus"
+Environment="PYTHONUNBUFFERED=1"
+
+[Install]
+WantedBy=graphical.target

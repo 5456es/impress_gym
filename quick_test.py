@@ -33,7 +33,7 @@ response = requests.get("http://localhost:5011/api/slide/current", json={})
 # response = requests.get("http://localhost:5011/api/slide/text-selection", json={})
 # response = requests.delete("http://localhost:5011/api/slide/0", json={})
 
-print("Response from /api/slide/current:", response.status_code, response.text)
+print("Response from /api/slide/current:", response.status_code, response.json())
 # select box
 ### set up boxes
 
