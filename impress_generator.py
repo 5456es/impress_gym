@@ -233,3 +233,127 @@ class FullLLMTaskGenerator:
             The text to delete should be the full text in the textbox, appropriate length for the use case. It should not be too long. Also the full text to delete should be specified in the instruction, not just the specific text to delete.
             """
         }
+        
+        # 场景类别，用于生成不同背景的任务
+        self.scenario_categories = [
+            "business_presentation",       # 商务演讲、销售方案、季度总结
+            "educational_lecture",         # 教学课件、PPT课程内容
+            "academic_defense",            # 毕业答辩、研究成果展示
+            "marketing_pitch",             # 产品发布、创业路演
+            "project_overview",            # 项目计划、阶段汇报
+            "team_meeting",                # 内部例会、进度通报
+            "training_material",           # 培训课程、指导文档
+            "conference_talk",             # 行业大会、专业分享
+            "technical_demo",              # 技术原理、架构展示
+            "status_update",               # 工作进展、日报周报
+            "portfolio_showcase",          # 设计作品集、个人展示
+            "event_invitation",            # 活动通知、会议邀请
+            "company_profile",             # 企业介绍、文化展示
+            "financial_summary",           # 财务报表、营收结构
+            "product_showcase",            # 产品特点、功能亮点
+            "infographic_summary",         # 可视化信息图、数据导图
+            "public_speaking",             # 演讲比赛、讲稿支持
+            "interactive_quiz",            # 教学测验、答题交互
+            "client_proposal",             # 客户方案、商业计划书
+            "internal_onboarding"          # 新员工培训、内部手册
+        ]
+
+    def call_llm(self, system_prompt: str, user_prompt: str, max_retries: int = 3) -> Dict[str, Any]:
+        """调用LLM API"""
+        headers = {
+            "Authorization": f"Bearer {self.api_key}",
+            "Content-Type": "application/json"
+        }
+        
+        data = {
+            "model": self.model,
+            "messages": [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt}
+            ],
+            "max_tokens": 1500,  # 增加token限制以支持更长文本
+            "temperature": 0.8
+        }
+        
+        for attempt in range(max_retries):
+            try:
+                response = requests.post(self.base_url, headers=headers, json=data, timeout=60)  # 增加超时时间
+                
+                if response.status_code == 200:
+                    result = response.json()
+                    content = result['choices'][0]['message']['content'].strip()
+                    
+                    # 尝试解析JSON
+                    try:
+                        # 清理可能的markdown标记
+                        if content.startswith('```json'):
+                            content = content.split('```json')[1].split('```')[0]
+                        elif content.startswith('```'):
+                            content = content.split('```')[1].split('```')[0]
+                        
+                        return json.loads(content)
+                    except json.JSONDecodeError as e:
+                        print(f"JSON parsing error (attempt {attempt + 1}): {e}")
+                        print(f"Raw content: {content}")
+                        if attempt == max_retries - 1:
+                            raise Exception(f"Failed to parse JSON after {max_retries} attempts")
+                        continue
+                else:
+                    print(f"API error (attempt {attempt + 1}): {response.status_code}")
+                    if attempt == max_retries - 1:
+                        raise Exception(f"API call failed with status {response.status_code}")
+                    
+            except Exception as e:
+                print(f"Request error (attempt {attempt + 1}): {e}")
+                if attempt == max_retries - 1:
+                    raise
+                
+    def generate_task_data(self, task_type: TaskType, scenario_category: str = None, direct_instruction_ratio: float = 1) -> TaskData:
+        """生成完整的任务数据
+        
+        Args:
+            task_type: 任务类型
+            scenario_category: 场景类别
+            direct_instruction_ratio: 直接指令比例 (0.0-1.0)，0.5表示50%直接指令，50%结构指令
+        """
+        if scenario_category is None:
+            scenario_category = random.choice(self.scenario_categories)
+        
+        # 根据比例随机选择使用直接提示还是结构提示
+        use_direct_prompt = random.random() < direct_instruction_ratio
+        
+        if use_direct_prompt:
+            system_prompt = self.direct_prompts[task_type.value]
+            instruction_type = "direct"
+        else:
+            system_prompt = self.structural_prompts[task_type.value]
+            instruction_type = "structural"
+        
+        user_prompt = f"""Generate a {task_type.value} task for a {scenario_category} scenario. 
+        Make it realistic, practical, and varied.
+        
+        IMPORTANT: Choose appropriate content length based on the realistic use case, especially not too long
+
+        Focus on creating tasks that someone would actually need to do when working with real impress file."""
+        
+        try:
+            llm_response = self.call_llm(system_prompt, user_prompt)
+            
+            # 将document_content添加到content字段中
+            content = llm_response["content"].copy()
+            
+            
+            return TaskData(
+                instruction=llm_response["instruction"],
+                content=content,
+                expected_result=llm_response["expected_result"],
+                metadata={
+                    **llm_response.get("metadata", {}),
+                    "scenario_category": scenario_category,
+                    "generated_by_llm": True,
+                    "instruction_type": instruction_type
+                }
+            )
+        except Exception as e:
+            print(f"LLM generation failed for {task_type.value}: {e}")
+        
