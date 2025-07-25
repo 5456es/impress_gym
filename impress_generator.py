@@ -400,20 +400,26 @@ class LibreOfficeImpressTaskGenerator:
                     "shell": True,
                 },
             },
-            
         ]
 
-    def generate_single_task(self, task_type: TaskType = None, scenario_category: str = None, direct_instruction_ratio: float = None) -> Dict[str, Any]:
+    def generate_single_task(
+        self,
+        task_type: TaskType = None,
+        scenario_category: str = None,
+        direct_instruction_ratio: float = None,
+    ) -> Dict[str, Any]:
         """生成单个任务"""
         if task_type is None:
             task_type = random.choice(list(TaskType))
-        
+
         if direct_instruction_ratio is None:
             direct_instruction_ratio = self.direct_instruction_ratio
-        
-        task_data = self.llm_generator.generate_task_data(task_type, scenario_category, direct_instruction_ratio)
+
+        task_data = self.llm_generator.generate_task_data(
+            task_type, scenario_category, direct_instruction_ratio
+        )
         task_id = f"{task_type.value}_{random.randint(1000, 9999)}"
-        
+
         return self.create_task_from_llm_data(task_id, task_type, task_data)
 
     def create_task_from_llm_data(
@@ -447,7 +453,7 @@ class LibreOfficeImpressTaskGenerator:
         self, base_task: Dict[str, Any], task_data: TaskData
     ) -> Dict[str, Any]:
         """创建选框任务"""
-        
+
         expected = task_data.expected_result
 
         # {
@@ -491,7 +497,9 @@ class LibreOfficeImpressTaskGenerator:
 
         setup_impress_command = [
             {"type": "execute", "parameters": {"command": [add_cmd], "shell": True}},
+            {"type": "sleep", "parameters": {"seconds": 1}},
             {"type": "execute", "parameters": {"command": [delete_cmd], "shell": True}},
+            {"type": "sleep", "parameters": {"seconds": 1}},
         ]
         base_task["config"].extend(setup_impress_command)
 
@@ -527,6 +535,8 @@ class LibreOfficeImpressTaskGenerator:
                         "font_size": random.randint(10, 50),
                         "alignment": random.choice(["left", "right", "center"]),
                     },
+                    "width": random.randint(8000,12000),
+                    "height": random.randint(1500, 4000),
                 }
             )
         for textbox_config in add_textbox_config:
@@ -536,15 +546,21 @@ class LibreOfficeImpressTaskGenerator:
                 f"-d {shlex.quote(json.dumps(textbox_config))}"
             )
             base_task["config"].append(
-                {"type": "execute", "parameters": {"command": [add_text_cmd], "shell": True}}
+                {
+                    "type": "execute",
+                    "parameters": {"command": [add_text_cmd], "shell": True},
+                }
             )
-        
+            base_task["config"].append(
+                {"type": "sleep", "parameters": {"seconds": 1}},
+            )
+
         # 3. 设置验证
         base_task["evaluator"] = {
-            "postconfig":{
-                    "type": "execute",
-                    "parameters": {
-                        "command": [
+            "postconfig": {
+                "type": "execute",
+                "parameters": {
+                    "command": [
                         "python",
                         "-c",
                         "import pyautogui; import time; pyautogui.press('delete'); time.sleep(0.5);"
@@ -570,11 +586,13 @@ if __name__ == "__main__":
     # 示例用法
     generator = LibreOfficeImpressTaskGenerator(
         model="gpt-4o",
-        direct_instruction_ratio=1  )
+        direct_instruction_ratio=1,
+    )
     task = generator.generate_single_task(
         task_type=TaskType.SELECT_BOX,
         scenario_category="business_presentation",
-    
     )
     print(json.dumps(task, indent=2, ensure_ascii=False))
+    with open("task.json", "w", encoding="utf-8") as f:
+        json.dump(task, f, indent=2, ensure_ascii=False)
     # 生成的任务将包含完整的配置和指令

@@ -1,0 +1,143 @@
+{
+    "id": "select_box_4535",
+    "snapshot": "libreoffice_impress",
+    "instruction": "Select the textbox that contains the mission statement which says 'Our mission is to innovate for a sustainable future.'",
+    "source": "",
+    "task_type": "scaling",
+    "config": [
+        {
+            "type": "launch",
+            "parameters": {
+                "command": [
+                    "libreoffice --impress --accept='socket,host=127.0.0.1,port=2002;urp;StarOffice.ServiceManager'"
+                ],
+                "shell": true
+            }
+        },
+        {
+            "type": "sleep",
+            "parameters": {
+                "seconds": 5
+            }
+        },
+        {
+            "type": "execute",
+            "parameters": {
+                "command": [
+                    "curl -X POST localhost:5011/api/connect"
+                ],
+                "shell": true
+            }
+        },
+        {
+            "type": "sleep",
+            "parameters": {
+                "seconds": 1
+            }
+        },
+        {
+            "type": "execute",
+            "parameters": {
+                "command": [
+                    "curl -X POST http://localhost:5011/api/slide/new -H 'Content-Type: application/json' -d '{}'"
+                ],
+                "shell": true
+            }
+        },
+        {
+            "type": "sleep",
+            "parameters": {
+                "seconds": 1
+            }
+        },
+        {
+            "type": "execute",
+            "parameters": {
+                "command": [
+                    "curl -X DELETE http://localhost:5011/api/slide/0 -H 'Content-Type: application/json' -d '{}'"
+                ],
+                "shell": true
+            }
+        },
+        {
+            "type": "sleep",
+            "parameters": {
+                "seconds": 1
+            }
+        },
+        {
+            "type": "execute",
+            "parameters": {
+                "command": [
+                    "curl -X POST http://localhost:5011/api/slide/add-text -H 'Content-Type: application/json' -d '{\"text\": \"Our mission is to innovate for a sustainable future.\", \"x\": 18166, \"y\": 7340, \"formatting\": {\"bold\": true, \"italic\": true, \"font_size\": 39, \"alignment\": \"right\"}}'"
+                ],
+                "shell": true
+            }
+        },
+        {
+            "type": "sleep",
+            "parameters": {
+                "seconds": 1
+            }
+        },
+        {
+            "type": "execute",
+            "parameters": {
+                "command": [
+                    "curl -X POST http://localhost:5011/api/slide/add-text -H 'Content-Type: application/json' -d '{\"text\": \"Vision: To be a global leader in sustainable technology solutions.\", \"x\": 3187, \"y\": 5979, \"formatting\": {\"bold\": false, \"italic\": false, \"font_size\": 50, \"alignment\": \"right\"}}'"
+                ],
+                "shell": true
+            }
+        },
+        {
+            "type": "sleep",
+            "parameters": {
+                "seconds": 1
+            }
+        },
+        {
+            "type": "execute",
+            "parameters": {
+                "command": [
+                    "curl -X POST http://localhost:5011/api/slide/add-text -H 'Content-Type: application/json' -d '{\"text\": \"Core Values: Integrity, Innovation, Sustainability.\", \"x\": 16503, \"y\": 10323, \"formatting\": {\"bold\": true, \"italic\": false, \"font_size\": 15, \"alignment\": \"center\"}}'"
+                ],
+                "shell": true
+            }
+        }
+    ],
+    "trajectory": "trajectories/",
+    "related_apps": [],
+    "metadata": {
+        "scnario": "select the textbox containing the company's mission statement",
+        "difficulty": "easy",
+        "scenario_category": "business_presentation",
+        "generated_by_llm": true,
+        "instruction_type": "direct"
+    },
+    "evaluator": {
+        "postconfig": [{
+            "type": "execute",
+            "parameters": {
+                "command": [
+                    "python",
+                    "-c",
+                    "import pyautogui; import time; pyautogui.press('delete'); time.sleep(0.5);"
+                ]
+            }
+        }],
+        "func": "textbox_selection_verification",
+        "result": {
+            "type": "current_content",
+            "verification": "textbox_selection"
+        },
+        "expected": {
+            "type": "rule",
+            "rules": {
+                "text_in_selected_textbox": [
+                    "Vision: To be a global leader in sustainable technology solutions.",
+                    "Core Values: Integrity, Innovation, Sustainability."
+                ]
+            }
+        }
+    }
+}
