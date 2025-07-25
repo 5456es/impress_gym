@@ -1,0 +1,103 @@
+{
+  "id": "text_formatting_textbox_5860",
+  "snapshot": "libreoffice_impress",
+  "instruction": "Apply bold formatting to the textbox that contains the project title '2023 Product Launch Strategy'",
+  "source": "",
+  "task_type": "scaling",
+  "config": [
+    {
+      "type": "launch",
+      "parameters": {
+        "command": [
+          "libreoffice --impress --accept='socket,host=127.0.0.1,port=2002;urp;StarOffice.ServiceManager'"
+        ],
+        "shell": true
+      }
+    },
+    {
+      "type": "sleep",
+      "parameters": {
+        "seconds": 5
+      }
+    },
+    {
+      "type": "execute",
+      "parameters": {
+        "command": [
+          "curl -X POST localhost:5011/api/connect"
+        ],
+        "shell": true
+      }
+    },
+    {
+      "type": "execute",
+      "parameters": {
+        "command": [
+          "curl -X POST http://localhost:5011/api/slide/new -H 'Content-Type: application/json' -d '{}'"
+        ],
+        "shell": true
+      }
+    },
+    {
+      "type": "sleep",
+      "parameters": {
+        "seconds": 5
+      }
+    },
+    {
+      "type": "execute",
+      "parameters": {
+        "command": [
+          "curl -X DELETE http://localhost:5011/api/slide/0 -H 'Content-Type: application/json' -d '{}'"
+        ],
+        "shell": true
+      }
+    },
+    {
+      "type": "sleep",
+      "parameters": {
+        "seconds": 5
+      }
+    },
+    {
+      "type": "execute",
+      "parameters": {
+        "command": [
+          "curl -X POST http://localhost:5011/api/slide/add-text -H 'Content-Type: application/json' -d '{\"text\": \"2023 Product Launch Strategy\", \"x\": 9218, \"y\": 9010, \"width\": 11072, \"height\": 3075}'"
+        ],
+        "shell": true
+      }
+    },
+    {
+      "type": "sleep",
+      "parameters": {
+        "seconds": 1
+      }
+    }
+  ],
+  "trajectory": "trajectories/",
+  "related_apps": [],
+  "metadata": {
+    "scenario": "business presentation for launching a new product",
+    "difficulty": "easy",
+    "scenario_category": "business_presentation",
+    "generated_by_llm": true,
+    "instruction_type": "direct"
+  },
+  "evaluator": {
+    "func": "text_formatting_verification",
+    "result": {
+      "type": "current_content",
+      "verification": "has_formatting"
+    },
+    "expected": {
+      "type": "rule",
+      "rules": {
+        "text_in_target_textbox": "2023 Product Launch Strategy",
+        "expected_formatting": {
+          "strikethrough": true
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,58 @@
+{
+  "id": "insert_table_5488",
+  "snapshot": "libreoffice_impress",
+  "instruction": "Insert a table with 10 rows and 8 columns to outline the quarterly sales data.",
+  "source": "",
+  "task_type": "scaling",
+  "config": [
+    {
+      "type": "launch",
+      "parameters": {
+        "command": [
+          "libreoffice --impress --accept='socket,host=127.0.0.1,port=2002;urp;StarOffice.ServiceManager'"
+        ],
+        "shell": true
+      }
+    },
+    {
+      "type": "sleep",
+      "parameters": {
+        "seconds": 5
+      }
+    },
+    {
+      "type": "execute",
+      "parameters": {
+        "command": [
+          "curl -X POST localhost:5011/api/connect"
+        ],
+        "shell": true
+      }
+    }
+  ],
+  "trajectory": "trajectories/",
+  "related_apps": [],
+  "metadata": {
+    "scenario": "Preparing a business presentation to display quarterly sales performance",
+    "difficulty": "medium",
+    "scenario_category": "business_presentation",
+    "generated_by_llm": true,
+    "instruction_type": "direct"
+  },
+  "evaluator": {
+    "func": "table_insertion_verification",
+    "result": {
+      "type": "current_content",
+      "verification": "table_insertion"
+    },
+    "expected": {
+      "type": "rule",
+      "rules": {
+        "table_structure": {
+          "rows": "10",
+          "columns": "8"
+        }
+      }
+    }
+  }
+}

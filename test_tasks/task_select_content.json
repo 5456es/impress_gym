@@ -1,0 +1,100 @@
+{
+  "id": "select_content_1668",
+  "snapshot": "libreoffice_impress",
+  "instruction": "Select the company's mission statement 'To innovate and inspire by delivering top-notch solutions' in the introduction slide of the business presentation.",
+  "source": "",
+  "task_type": "scaling",
+  "config": [
+    {
+      "type": "launch",
+      "parameters": {
+        "command": [
+          "libreoffice --impress --accept='socket,host=127.0.0.1,port=2002;urp;StarOffice.ServiceManager'"
+        ],
+        "shell": true
+      }
+    },
+    {
+      "type": "sleep",
+      "parameters": {
+        "seconds": 5
+      }
+    },
+    {
+      "type": "execute",
+      "parameters": {
+        "command": [
+          "curl -X POST localhost:5011/api/connect"
+        ],
+        "shell": true
+      }
+    },
+    {
+      "type": "execute",
+      "parameters": {
+        "command": [
+          "curl -X POST http://localhost:5011/api/slide/new -H 'Content-Type: application/json' -d '{}'"
+        ],
+        "shell": true
+      }
+    },
+    {
+      "type": "sleep",
+      "parameters": {
+        "seconds": 5
+      }
+    },
+    {
+      "type": "execute",
+      "parameters": {
+        "command": [
+          "curl -X DELETE http://localhost:5011/api/slide/0 -H 'Content-Type: application/json' -d '{}'"
+        ],
+        "shell": true
+      }
+    },
+    {
+      "type": "sleep",
+      "parameters": {
+        "seconds": 5
+      }
+    },
+    {
+      "type": "execute",
+      "parameters": {
+        "command": [
+          "curl -X POST http://localhost:5011/api/slide/add-text -H 'Content-Type: application/json' -d '{\"text\": \"Welcome to our annual business presentation. Our mission is clear: To innovate and inspire by delivering top-notch solutions. We are committed to excellence and customer satisfaction.\", \"x\": 10925, \"y\": 7965, \"formatting\": {\"bold\": false, \"italic\": true, \"font_size\": 14, \"alignment\": \"left\", \"width\": 10810, \"height\": 3172}}'"
+        ],
+        "shell": true
+      }
+    },
+    {
+      "type": "sleep",
+      "parameters": {
+        "seconds": 1
+      }
+    }
+  ],
+  "trajectory": "trajectories/",
+  "related_apps": [],
+  "metadata": {
+    "scenario": "business presentation",
+    "difficulty": "easy",
+    "scenario_category": "business_presentation",
+    "generated_by_llm": true,
+    "instruction_type": "direct"
+  },
+  "evaluator": {
+    "func": "content_selection_verification",
+    "result": {
+      "type": "selected_content",
+      "verification": "text_selection"
+    },
+    "expected": {
+      "type": "rule",
+      "rules": {
+        "target_text": "To innovate and inspire by delivering top-notch solutions"
+      }
+    }
+  }
+}

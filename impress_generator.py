@@ -432,6 +432,7 @@ class LibreOfficeImpressTaskGenerator:
             "snapshot": "libreoffice_impress",
             "instruction": task_data.instruction,
             "source": "",
+            "task_type": "scaling",
             "config": self.base_config.copy(),
             "trajectory": "trajectories/",
             "related_apps": [],
@@ -497,9 +498,9 @@ class LibreOfficeImpressTaskGenerator:
 
         setup_impress_command = [
             {"type": "execute", "parameters": {"command": [add_cmd], "shell": True}},
-            {"type": "sleep", "parameters": {"seconds": 1}},
+            {"type": "sleep", "parameters": {"seconds": 5}},
             {"type": "execute", "parameters": {"command": [delete_cmd], "shell": True}},
-            {"type": "sleep", "parameters": {"seconds": 1}},
+            {"type": "sleep", "parameters": {"seconds": 5}},
         ]
         base_task["config"].extend(setup_impress_command)
 
@@ -513,7 +514,7 @@ class LibreOfficeImpressTaskGenerator:
         add_textbox_config.append(
             {
                 "text": target_textbox,
-                "x": random.randint(1000, 20000),
+                "x": random.randint(1000, 18000),
                 "y": random.randint(1000, 14000),
                 "formatting": {
                     "bold": random.choice([True, False]),
@@ -527,7 +528,7 @@ class LibreOfficeImpressTaskGenerator:
             add_textbox_config.append(
                 {
                     "text": text,
-                    "x": random.randint(1000, 20000),
+                    "x": random.randint(1000, 18000),
                     "y": random.randint(1000, 14000),
                     "formatting": {
                         "bold": random.choice([True, False]),
@@ -535,7 +536,7 @@ class LibreOfficeImpressTaskGenerator:
                         "font_size": random.randint(10, 50),
                         "alignment": random.choice(["left", "right", "center"]),
                     },
-                    "width": random.randint(8000,12000),
+                    "width": random.randint(8000, 12000),
                     "height": random.randint(1500, 4000),
                 }
             )
@@ -557,30 +558,267 @@ class LibreOfficeImpressTaskGenerator:
 
         # 3. 设置验证
         base_task["evaluator"] = {
-            "postconfig": {
-                "type": "execute",
-                "parameters": {
-                    "command": [
-                        "python",
-                        "-c",
-                        "import pyautogui; import time; pyautogui.press('delete'); time.sleep(0.5);"
+            "postconfig": [
+                {
+                    "type": "execute",
+                    "parameters": {
+                        "command": [
+                            "python",
+                            "-c",
+                            "import pyautogui; import time; pyautogui.press('delete'); time.sleep(0.5);",
                         ]
-                    }
+                    },
                 }
+            ],
             "func": "textbox_selection_verification",
             "result": {
                 "type": "current_content",
-                "verification": expected["verification_type"]
+                "verification": expected["verification_type"],
             },
             "expected": {
                 "type": "rule",
                 "rules": {
-                    "other_textboxes": task_data.content["environment_excluding_the_target_textbox"]["other_textboxes"],
-                }
-            }
+                    "other_textboxes": task_data.content[
+                        "environment_excluding_the_target_textbox"
+                    ]["other_textboxes"],
+                },
+            },
         }
         return base_task
 
+    def _create_select_content_task(
+        self, base_task: Dict[str, Any], task_data: TaskData
+    ) -> Dict[str, Any]:
+        """创建选内容任务"""
+        expected = task_data.expected_result
+
+        # {
+        #     "instruction": "Natural language instruction for the user - MUST specify what text to select",
+        #     "content": {
+        #         "target_text": "The specific text to select - appropriate length for the use case",
+        #         "full_text": "The full text in the textbox where the target text is located",
+        #     },
+        #     "expected_result": {
+        #         "verification_type": "text_selection",
+        #         "target_text": "The specific text to select - appropriate length for the use case"
+        #     },
+        #     "metadata": {
+        #         "scenario": "brief description of use case",
+        #         "difficulty": "easy|medium|hard"
+        #     }
+        # }
+
+        add_cmd = (
+            "curl -X POST http://localhost:5011/api/slide/new "
+            "-H 'Content-Type: application/json' "
+            f"-d {shlex.quote(json.dumps({}))}"
+        )
+
+        # 构造 DELETE 命令
+        delete_cmd = (
+            "curl -X DELETE http://localhost:5011/api/slide/0 "
+            "-H 'Content-Type: application/json' "
+            f"-d {shlex.quote(json.dumps({}))}"
+        )
+
+        setup_impress_command = [
+            {"type": "execute", "parameters": {"command": [add_cmd], "shell": True}},
+            {"type": "sleep", "parameters": {"seconds": 5}},
+            {"type": "execute", "parameters": {"command": [delete_cmd], "shell": True}},
+            {"type": "sleep", "parameters": {"seconds": 5}},
+        ]
+        base_task["config"].extend(setup_impress_command)
+
+        ### 2. set up 框
+        full_text = task_data.content["full_text"]
+        target_text = task_data.content["target_text"]
+        
+        add_textbox_config = []
+        add_textbox_config.append(
+            {
+                "text": full_text,
+                "x": random.randint(1000, 16000),
+                "y": random.randint(1000, 10000),
+                "formatting": {
+                    "bold": random.choice([True, False]),
+                    "italic": random.choice([True, False]),
+                    "font_size": random.randint(10, 50),
+                    "alignment": random.choice(["left", "right", "center"]),
+                    "width": random.randint(8000, 12000),
+                    "height": random.randint(1500, 4000),
+                },
+            }
+        )
+        
+        for textbox_config in add_textbox_config:
+            add_text_cmd = (
+                "curl -X POST http://localhost:5011/api/slide/add-text "
+                "-H 'Content-Type: application/json' "
+                f"-d {shlex.quote(json.dumps(textbox_config))}"
+            )
+            base_task["config"].append(
+                {
+                    "type": "execute",
+                    "parameters": {"command": [add_text_cmd], "shell": True},
+                }
+            )
+            base_task["config"].append(
+                {"type": "sleep", "parameters": {"seconds": 1}},
+            )
+
+        # 3. 设置验证
+        base_task["evaluator"] = {
+            "func": "content_selection_verification",
+            "result": {
+                "type": "selected_content",
+                "verification": expected["verification_type"],
+            },
+            "expected": {
+                "type": "rule",
+                "rules": {
+                    "target_text": task_data.content["target_text"],
+                },
+            },
+        }
+        return base_task
+    
+    def _create_text_formatting_task(
+        self, base_task: Dict[str, Any], task_data: TaskData
+    ) -> Dict[str, Any]:
+        """创建文本格式化任务"""
+        expected = task_data.expected_result
+
+        # {
+        #     "instruction": "Natural language instruction for the user - MUST specify which textbox to apply format and how",
+        #     "content": {
+        #         "text_in_target_textbox": "The exact full text in the textbox where the formatting should be applied - appropriate length for the use case",
+        #         "formatting": "MUST be a JSON object with EXACTLY ONE property. Examples: {\"bold\": true} OR {\"font_size\": 16} OR {\"font\": \"Arial\"} OR {\"color\": \"0xFF0000\"} OR {\"strikethrough\": true} OR {\"alignment\": \"center\"} "
+        #     },
+        #     "expected_result": {
+        #         "verification_type": "has_formatting",
+        #         "text_in_target_textbox": "The exact full text in the textbox after formatting - should be the same as text_in_target_textbox",
+        #         "expected_formatting": "same as formatting above"
+        #     },
+        #     "metadata": {
+        #         "scenario": "brief description of use case",
+        #         "difficulty": "easy|medium|hard"
+        #     }
+        # }
+        
+        # 1. 先添加页面，再删除到只剩一张
+
+        add_cmd = (
+            "curl -X POST http://localhost:5011/api/slide/new "
+            "-H 'Content-Type: application/json' "
+            f"-d {shlex.quote(json.dumps({}))}"
+        )
+
+        # 构造 DELETE 命令
+        delete_cmd = (
+            "curl -X DELETE http://localhost:5011/api/slide/0 "
+            "-H 'Content-Type: application/json' "
+            f"-d {shlex.quote(json.dumps({}))}"
+        )
+
+        setup_impress_command = [
+            {"type": "execute", "parameters": {"command": [add_cmd], "shell": True}},
+            {"type": "sleep", "parameters": {"seconds": 5}},
+            {"type": "execute", "parameters": {"command": [delete_cmd], "shell": True}},
+            {"type": "sleep", "parameters": {"seconds": 5}},
+        ]
+        base_task["config"].extend(setup_impress_command)
+        
+        ### 2. set up 框
+        target_textbox = task_data.content["text_in_target_textbox"]
+        add_textbox_config = [
+            {
+                "text": target_textbox,
+                "x": random.randint(1000, 16000),
+                "y": random.randint(1000, 10000),
+                "width": random.randint(8000, 12000),
+                "height": random.randint(1500, 4000),
+            }
+        ]
+        
+        for textbox_config in add_textbox_config:
+            add_text_cmd = (
+                "curl -X POST http://localhost:5011/api/slide/add-text "
+                "-H 'Content-Type: application/json' "
+                f"-d {shlex.quote(json.dumps(textbox_config))}"
+            )
+            base_task["config"].append(
+                {
+                    "type": "execute",
+                    "parameters": {"command": [add_text_cmd], "shell": True},
+                }
+            )
+            base_task["config"].append(
+                {"type": "sleep", "parameters": {"seconds": 1}},
+            )
+
+        ### 3. 设置验证
+        base_task["evaluator"] = {
+            "func": "text_formatting_verification",
+            "result": {
+                "type": "current_content",
+                "verification": expected["verification_type"],
+            },
+            "expected": {
+                "type": "rule",
+                "rules": {
+                    "text_in_target_textbox": task_data.content[
+                        "text_in_target_textbox"
+                    ],
+                    "expected_formatting": task_data.content["formatting"],
+                },
+            },
+        }
+        return base_task
+    
+    def _create_insert_table_task(
+        self, base_task: Dict[str, Any], task_data: TaskData
+    ) -> Dict[str, Any]:
+        """创建插入表格任务"""
+        expected = task_data.expected_result
+
+        # {
+        #     "instruction": "Natural language instruction for the user - MUST specify the rows and columns of the table to insert",
+        #     "content": {
+        #         "table_structure": {
+        #             "rows": "Number of rows in the table to insert(range 5 to 15, diverse)",
+        #             "columns": "Number of columns in the table to insert(range 5 to 15)"
+        #         },                    
+        #     },
+        #     "expected_result": {
+        #         "verification_type": "table_insertion",
+        #         "table_structure": {
+        #             "rows": "Number of rows in the table to insert(range 5 to 15)",
+        #             "columns": "Number of columns in the table to insert(range 5 to 15)"
+        #         }
+        #     },
+        #     "metadata": {
+        #         "scenario": "brief description of use case",
+        #         "difficulty": "easy|medium|hard"
+        #     }
+        # }
+    
+        base_task["evaluator"] = {
+            "func": "table_insertion_verification",
+            "result": {
+                "type": "current_content",
+                "verification": expected["verification_type"],
+            },
+            "expected": {
+                "type": "rule",
+                "rules": {
+                    "table_structure": task_data.content["table_structure"],
+                },
+            },
+        }
+        return base_task
+        
+
+        
 
 if __name__ == "__main__":
     # 示例用法
@@ -592,10 +830,12 @@ if __name__ == "__main__":
         direct_instruction_ratio=1,
     )
     task = generator.generate_single_task(
-        task_type=TaskType.SELECT_BOX,
+        task_type=TaskType.INSERT_TABLE,
         scenario_category="business_presentation",
     )
     print(json.dumps(task, indent=2, ensure_ascii=False))
-    with open("task.json", "w", encoding="utf-8") as f:
+    with open(
+        "test_tasks/insert_table.json", "w", encoding="utf-8"
+    ) as f:
         json.dump(task, f, indent=2, ensure_ascii=False)
     # 生成的任务将包含完整的配置和指令
