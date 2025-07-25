@@ -584,7 +584,10 @@ class LibreOfficeImpressTaskGenerator:
 
 if __name__ == "__main__":
     # 示例用法
+    with open("api_key.txt", "r") as f:
+        api_key = f.read().strip()
     generator = LibreOfficeImpressTaskGenerator(
+        llm_api_key=api_key,
         model="gpt-4o",
         direct_instruction_ratio=1,
     )
