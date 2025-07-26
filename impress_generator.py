@@ -427,7 +427,7 @@ class LibreOfficeImpressTaskGenerator:
                     "shell": True,
                 },
             },
-            {"type": "sleep", "parameters": {"seconds": 5}},
+            {"type": "sleep", "parameters": {"seconds": 3}},
             {
                 "type": "execute",
                 "parameters": {
@@ -535,9 +535,9 @@ class LibreOfficeImpressTaskGenerator:
 
         setup_impress_command = [
             {"type": "execute", "parameters": {"command": [add_cmd], "shell": True}},
-            {"type": "sleep", "parameters": {"seconds": 5}},
+            {"type": "sleep", "parameters": {"seconds": 3}},
             {"type": "execute", "parameters": {"command": [delete_cmd], "shell": True}},
-            {"type": "sleep", "parameters": {"seconds": 5}},
+            {"type": "sleep", "parameters": {"seconds": 3}},
         ]
         base_task["config"].extend(setup_impress_command)
 
@@ -660,9 +660,9 @@ class LibreOfficeImpressTaskGenerator:
 
         setup_impress_command = [
             {"type": "execute", "parameters": {"command": [add_cmd], "shell": True}},
-            {"type": "sleep", "parameters": {"seconds": 5}},
+            {"type": "sleep", "parameters": {"seconds": 3}},
             {"type": "execute", "parameters": {"command": [delete_cmd], "shell": True}},
-            {"type": "sleep", "parameters": {"seconds": 5}},
+            {"type": "sleep", "parameters": {"seconds": 3}},
         ]
         base_task["config"].extend(setup_impress_command)
 
@@ -759,9 +759,9 @@ class LibreOfficeImpressTaskGenerator:
 
         setup_impress_command = [
             {"type": "execute", "parameters": {"command": [add_cmd], "shell": True}},
-            {"type": "sleep", "parameters": {"seconds": 5}},
+            {"type": "sleep", "parameters": {"seconds": 3}},
             {"type": "execute", "parameters": {"command": [delete_cmd], "shell": True}},
-            {"type": "sleep", "parameters": {"seconds": 5}},
+            {"type": "sleep", "parameters": {"seconds": 3}},
         ]
         base_task["config"].extend(setup_impress_command)
 
@@ -946,11 +946,12 @@ if __name__ == "__main__":
         model="gpt-4o",
         direct_instruction_ratio=1,
     )
-    task = generator.generate_single_task(
-        task_type=TaskType.INSERT_TABLE,
-        scenario_category="business_presentation",
-    )
-    print(json.dumps(task, indent=2, ensure_ascii=False))
-    with open("test_tasks/insert_table.json", "w", encoding="utf-8") as f:
-        json.dump(task, f, indent=2, ensure_ascii=False)
-    # 生成的任务将包含完整的配置和指令
+    
+    # task = generator.generate_single_task(
+    #     task_type=TaskType.INSERT_TABLE,
+    #     scenario_category="business_presentation",
+    # )
+    # print(json.dumps(task, indent=2, ensure_ascii=False))
+    # with open("test_tasks/insert_table.json", "w", encoding="utf-8") as f:
+    #     json.dump(task, f, indent=2, ensure_ascii=False)
+    # # 生成的任务将包含完整的配置和指令
