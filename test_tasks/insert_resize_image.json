@@ -1,0 +1,70 @@
+{
+  "id": "insert_resize_image_5338",
+  "snapshot": "libreoffice_impress",
+  "instruction": "Insert the image located at /home/user/Desktop/image_to_insert.jpg into your business presentation slide. Resize the image so that it fits properly on the slide with a width of 10 cm and a height of 6 cm, ensuring it's prominently displayed but doesn't overwhelm other content.",
+  "source": "",
+  "task_type": "scaling",
+  "config": [
+    {
+      "type": "launch",
+      "parameters": {
+        "command": [
+          "libreoffice --impress --accept='socket,host=127.0.0.1,port=2002;urp;StarOffice.ServiceManager'"
+        ],
+        "shell": true
+      }
+    },
+    {
+      "type": "sleep",
+      "parameters": {
+        "seconds": 5
+      }
+    },
+    {
+      "type": "execute",
+      "parameters": {
+        "command": [
+          "curl -X POST localhost:5011/api/connect"
+        ],
+        "shell": true
+      }
+    },
+    {
+      "type": "download",
+      "parameters": {
+        "files": [
+          {
+            "url": "https://agent-files.deva.msh.team/osworld/scaling_files/libreoffice_impress_gym_images/impress_gym_images/70.jpg",
+            "path": "/home/user/Desktop/image_to_insert.jpg"
+          }
+        ]
+      }
+    }
+  ],
+  "trajectory": "trajectories/",
+  "related_apps": [],
+  "metadata": {
+    "scenario": "In a business presentation, an image needs to be showcased in a way that complements the accompanying text and data without overshadowing it.",
+    "difficulty": "medium",
+    "scenario_category": "business_presentation",
+    "generated_by_llm": true,
+    "instruction_type": "direct"
+  },
+  "evaluator": {
+    "func": "image_insertion_and_resizing_verification",
+    "result": {
+      "type": "current_content",
+      "verification": "image_insertion_and_resizing"
+    },
+    "expected": {
+      "type": "rule",
+      "rules": {
+        "image_path": "/home/user/Desktop/image_to_insert.jpg",
+        "resize_dimensions": {
+          "width": 10,
+          "height": 6
+        }
+      }
+    }
+  }
+}

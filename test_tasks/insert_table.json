@@ -1,7 +1,7 @@
 {
-  "id": "insert_table_5488",
+  "id": "insert_table_9131",
   "snapshot": "libreoffice_impress",
-  "instruction": "Insert a table with 10 rows and 8 columns to outline the quarterly sales data.",
+  "instruction": "Insert a table with 12 rows and 6 columns to organize the quarterly sales data for each region in the business presentation.",
   "source": "",
   "task_type": "scaling",
   "config": [
@@ -33,7 +33,7 @@
   "trajectory": "trajectories/",
   "related_apps": [],
   "metadata": {
-    "scenario": "Preparing a business presentation to display quarterly sales performance",
+    "scenario": "Organizing and presenting quarterly sales data for different regions in a business meeting.",
     "difficulty": "medium",
     "scenario_category": "business_presentation",
     "generated_by_llm": true,
@@ -49,8 +49,8 @@
       "type": "rule",
       "rules": {
         "table_structure": {
-          "rows": "10",
-          "columns": "8"
+          "rows": 12,
+          "columns": 6
         }
       }
     }

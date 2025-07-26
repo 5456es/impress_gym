@@ -23,8 +23,9 @@ class TaskType(Enum):
     SELECT_CONTENT = "select_content"
     TEXT_FORMATTING_TEXTBOX = "text_formatting_textbox"
     INSERT_TABLE = "insert_table"
-    DELETE_TEXT_TEXTBOX = "delete_text_textbox"
+    INSERT_RESIZE_IMAGE = "insert_resize_image"
 
+    DELETE_TEXT_TEXTBOX = "delete_text_textbox"
     TEXT_FORMATTING_CONTENT_ = "text_formatting_content"
     REPLACE_TEXT_ = "replace_text"
     INSERT_NOTE_ = "insert_note"
@@ -233,6 +234,40 @@ class FullLLMTaskGenerator:
                 - "Delete the phone number '(555) 123-4567'"
             
             The text to delete should be the full text in the textbox, appropriate length for the use case. It should not be too long. Also the full text to delete should be specified in the instruction, not just the specific text to delete.
+            """,
+            "insert_resize_image": """
+            You are a task generator for LibreOffice Impress automation. Generate a realistic image insertion and resizing task.
+            
+            Return ONLY a valid JSON object with this exact structure:
+            
+            {
+                "instruction": "Natural language instruction for the user - MUST specify the image to insert and how to resize it",
+                "content": {
+                    "image_path": "/home/user/Desktop/image_to_insert.jpg",  # Fixed path where the image is stored
+                    "resize_dimensions": {
+                        "width": "Width to resize the image to (in integer cms)",
+                        "height": "Height to resize the image to (in integer cms)"
+                    }
+                },
+                "expected_result": {
+                    "verification_type": "image_insertion_and_resizing",
+                    "image_path": "/home/user/Desktop/image_to_insert.jpg",  # Fixed path where the image is stored
+                    "resize_dimensions": {
+                        "width": "Width of the resized image (in interger cms)",
+                        "height": "Height of the resized image (in interger cms)"
+                    }
+                },
+                "metadata": {
+                    "scenario": "brief description of use case",
+                    "difficulty": "easy|medium|hard"
+                }
+            }
+            
+            IMPORTANT:
+            Due to the limitations of the current API, you can only specify the image path and the dimensions to resize it to. 
+            Also the image path is fixed which is /home/user/Desktop/image_to_insert.jpg.
+            
+            Since we don't actually know the content of the image, so don't include any specific content in the instruction. Just focus on the insertion and resizing of the image for some general use cases.
             """,
         }
 
@@ -449,6 +484,8 @@ class LibreOfficeImpressTaskGenerator:
             return self._create_insert_table_task(base_task, task_data)
         elif task_type == TaskType.DELETE_TEXT_TEXTBOX:
             return self._create_delete_text_task(base_task, task_data)
+        elif task_type == TaskType.INSERT_RESIZE_IMAGE:
+            return self._create_insert_resize_image_task(base_task, task_data)
 
     def _create_select_box_task(
         self, base_task: Dict[str, Any], task_data: TaskData
@@ -632,7 +669,7 @@ class LibreOfficeImpressTaskGenerator:
         ### 2. set up 框
         full_text = task_data.content["full_text"]
         target_text = task_data.content["target_text"]
-        
+
         add_textbox_config = []
         add_textbox_config.append(
             {
@@ -649,7 +686,7 @@ class LibreOfficeImpressTaskGenerator:
                 },
             }
         )
-        
+
         for textbox_config in add_textbox_config:
             add_text_cmd = (
                 "curl -X POST http://localhost:5011/api/slide/add-text "
@@ -681,7 +718,7 @@ class LibreOfficeImpressTaskGenerator:
             },
         }
         return base_task
-    
+
     def _create_text_formatting_task(
         self, base_task: Dict[str, Any], task_data: TaskData
     ) -> Dict[str, Any]:
@@ -704,7 +741,7 @@ class LibreOfficeImpressTaskGenerator:
         #         "difficulty": "easy|medium|hard"
         #     }
         # }
-        
+
         # 1. 先添加页面，再删除到只剩一张
 
         add_cmd = (
@@ -727,7 +764,7 @@ class LibreOfficeImpressTaskGenerator:
             {"type": "sleep", "parameters": {"seconds": 5}},
         ]
         base_task["config"].extend(setup_impress_command)
-        
+
         ### 2. set up 框
         target_textbox = task_data.content["text_in_target_textbox"]
         add_textbox_config = [
@@ -739,7 +776,7 @@ class LibreOfficeImpressTaskGenerator:
                 "height": random.randint(1500, 4000),
             }
         ]
-        
+
         for textbox_config in add_textbox_config:
             add_text_cmd = (
                 "curl -X POST http://localhost:5011/api/slide/add-text "
@@ -774,7 +811,7 @@ class LibreOfficeImpressTaskGenerator:
             },
         }
         return base_task
-    
+
     def _create_insert_table_task(
         self, base_task: Dict[str, Any], task_data: TaskData
     ) -> Dict[str, Any]:
@@ -787,7 +824,7 @@ class LibreOfficeImpressTaskGenerator:
         #         "table_structure": {
         #             "rows": "Number of rows in the table to insert(range 5 to 15, diverse)",
         #             "columns": "Number of columns in the table to insert(range 5 to 15)"
-        #         },                    
+        #         },
         #     },
         #     "expected_result": {
         #         "verification_type": "table_insertion",
@@ -801,7 +838,7 @@ class LibreOfficeImpressTaskGenerator:
         #         "difficulty": "easy|medium|hard"
         #     }
         # }
-    
+
         base_task["evaluator"] = {
             "func": "table_insertion_verification",
             "result": {
@@ -816,9 +853,89 @@ class LibreOfficeImpressTaskGenerator:
             },
         }
         return base_task
-        
 
-        
+    def _create_insert_resize_image_task(
+        self, base_task: Dict[str, Any], task_data: TaskData
+    ) -> Dict[str, Any]:
+        """创建插入和调整大小的图片任务"""
+        expected = task_data.expected_result
+
+        # {
+        #     "instruction": "Natural language instruction for the user - MUST specify the image to insert and how to resize it",
+        #     "content": {
+        #         "image_path": "/home/user/Desktop",  # Fixed path where the image is stored
+        #         "resize_dimensions": {
+        #             "width": "Width to resize the image to (in cms)",
+        #             "height": "Height to resize the image to (in cms)"
+        #         }
+        #     },
+        #     "expected_result": {
+        #         "verification_type": "image_insertion_and_resizing",
+        #         "image_path": "/home/user/Desktop",  # Fixed path where the image is stored
+        #         "resize_dimensions": {
+        #             "width": "Width of the resized image (in cms)",
+        #             "height": "Height of the resized image (in cms)"
+        #         }
+        #     },
+        #     "metadata": {
+        #         "scenario": "brief description of use case",
+        #         "difficulty": "easy|medium|hard"
+        #     }
+        # }
+        #     "config": [
+        #     {
+        #         "type": "download",
+        #         "parameters": {
+        #             "files": [
+        #                 {
+        #                     "url": "https://agent-files.deva.msh.team/osworld/benchmark_files/libreoffice_impress/0f84bef9-9790-432e-92b7-eece357603fb_multimedia_classroom_podium-2020.pptx",
+        #                     "path": "/home/user/Desktop/multimedia_classroom_podium-2020.pptx"
+        #                 }
+        #             ]
+        #         }
+        #     },
+        #     {
+        #         "type": "open",
+        #         "parameters": {
+        #             "path": "/home/user/Desktop/multimedia_classroom_podium-2020.pptx"
+        #         }
+        #     }
+        # ],
+        # 1. 准备把图片先上传到指定路径
+
+        image_file = f"https://agent-files.deva.msh.team/osworld/scaling_files/libreoffice_impress_gym_images/impress_gym_images/{random.randint(1, 100)}.jpg"
+
+        upload_image_cmd = {
+            "type": "download",
+            "parameters": {
+                "files": [
+                    {
+                        "url": image_file,
+                        "path": "/home/user/Desktop/image_to_insert.jpg",
+                    }
+                ]
+            },
+        }
+        base_task["config"].append(upload_image_cmd)
+
+        # 2. 准备验证
+        base_task["evaluator"] = {
+            "func": "image_insertion_and_resizing_verification",
+            "result": {
+                "type": "current_content",
+                "verification": expected["verification_type"],
+            },
+            "expected": {
+                "type": "rule",
+                "rules": {
+                    "image_path": task_data.content["image_path"],
+                    "resize_dimensions": task_data.content["resize_dimensions"],
+                },
+            },
+        }
+
+        return base_task
+
 
 if __name__ == "__main__":
     # 示例用法
@@ -834,8 +951,6 @@ if __name__ == "__main__":
         scenario_category="business_presentation",
     )
     print(json.dumps(task, indent=2, ensure_ascii=False))
-    with open(
-        "test_tasks/insert_table.json", "w", encoding="utf-8"
-    ) as f:
+    with open("test_tasks/insert_table.json", "w", encoding="utf-8") as f:
         json.dump(task, f, indent=2, ensure_ascii=False)
     # 生成的任务将包含完整的配置和指令
