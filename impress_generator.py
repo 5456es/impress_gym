@@ -11,14 +11,16 @@ class TaskType(Enum):
     # 1. 选框/Select_Box
     # 2. 选文字/Select_Content
     # 3. 修改文字格式/Text_Formatting
-    # 1. 大小
-    # 2. 加粗
-    # 3. 删除线
-    # 4. 对齐
-    # 5. 颜色
-    # 4. 插入表格/Insert_Table
-    # 5. 删除文字/Delete_Text
-    # 6. 更换文字/Replace_Text
+        # a. 大小
+        # b. 加粗
+        # c. 删除线
+        # d. 对齐
+        # e. 颜色
+    # 4. 插入图片/Insert_Resize_Image
+    # 5. 插入表格/Insert_Table
+    
+    # 6. 删除文字/Delete_Text
+    # 7. 更换文字/Replace_Text
     SELECT_BOX = "select_box"
     SELECT_CONTENT = "select_content"
     TEXT_FORMATTING_TEXTBOX = "text_formatting_textbox"
@@ -98,6 +100,9 @@ class FullLLMTaskGenerator:
             
             #The text in textbox don't be too long, just a few sentences is enough.
             
+            #Hint the agent to select textbox, rather than selecting a part of the text. Specifically, the editing mode should not be activated, the Text Cursor should not be blinking, and the text should not be highlighted. 
+            
+            
             """,
             "select_content": """
             
@@ -171,9 +176,10 @@ class FullLLMTaskGenerator:
             - "Center align the text in the textbox 'Contact Information'"
             → formatting: {"alignment": "center"}
             
-            Consider aiming to apply the formatting to the entire textbox, not just a part of it. So when you describe the textbox, it should be clear that the formatting applies to the whole textbox. If 
-            you either mention the 'textbox' or point out the full content of the textbox.
+            Consider aiming to apply the formatting to the entire textbox, not just a part of it. So when you describe the textbox, it should be clear that the formatting applies to the whole textbox or applying to the entire content of the textbox.
+            You either mention the 'textbox' or point out the full content of the textbox.
             """,
+            
             "insert_table": """
             
             You are a task generator for LibreOffice Impress automation. Generate a realistic blank table insertion task.
